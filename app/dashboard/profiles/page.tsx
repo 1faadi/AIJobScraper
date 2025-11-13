@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, Filter, MoreVertical } from "lucide-react"
@@ -20,6 +21,7 @@ interface Profile {
 }
 
 export default function ProfilesPage() {
+  const router = useRouter()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
@@ -147,7 +149,11 @@ export default function ProfilesPage() {
                   </tr>
                 ) : (
                   paginatedProfiles.map((profile) => (
-                <tr key={profile.id} className="border-b border-border hover:bg-muted transition-colors">
+                <tr 
+                  key={profile.id} 
+                  className="border-b border-border hover:bg-muted transition-colors cursor-pointer"
+                  onClick={() => router.push(`/dashboard/profiles/${profile.id}`)}
+                >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold">
@@ -161,7 +167,13 @@ export default function ProfilesPage() {
                   <td className="px-6 py-4 text-sm text-foreground">{profile.experience}</td>
                   <td className="px-6 py-4 text-sm text-foreground">{profile.jobSuccess}</td>
                   <td className="px-6 py-4">
-                    <button className="p-2 hover:bg-muted rounded-lg transition-colors">
+                    <button 
+                      className="p-2 hover:bg-muted rounded-lg transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // TODO: Open actions menu
+                      }}
+                    >
                       <MoreVertical className="w-4 h-4 text-muted-foreground" />
                     </button>
                   </td>

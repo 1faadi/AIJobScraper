@@ -1,11 +1,62 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Briefcase, Users, FileText, Heart } from "lucide-react"
 import { DashboardHeader } from "./dashboard-header"
 import { StatsCard } from "./stats-card"
 import { Button } from "@/components/ui/button"
 
+interface DashboardStats {
+  activeJobs: { value: number; trend: string }
+  profiles: { value: number; trend: string }
+  templates: { value: number; trend: string }
+  savedJobs: { value: number; trend: string }
+}
+
+interface Activity {
+  id: string
+  type: "profile" | "job" | "saved"
+  title: string
+  time: string
+  badge: string
+  badgeColor: string
+}
+
 export default function DashboardPage() {
+  const router = useRouter()
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true)
+    try {
+      const [statsRes, activityRes] = await Promise.all([
+        fetch("/api/dashboard/stats"),
+        fetch("/api/dashboard/activity"),
+      ])
+
+      if (statsRes.ok) {
+        const statsData = await statsRes.json()
+        setStats(statsData.stats)
+      }
+
+      if (activityRes.ok) {
+        const activityData = await activityRes.json()
+        setActivities(activityData.activities || [])
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       <DashboardHeader />
@@ -14,29 +65,72 @@ export default function DashboardPage() {
         <div className="space-y-8">
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatsCard
-              title="Active Jobs"
-              value="24"
-              icon={<Briefcase className="w-6 h-6" />}
-              trend="↑ 12% from last week"
-            />
-            <StatsCard title="Profiles" value="8" icon={<Users className="w-6 h-6" />} trend="↑ 2 new profiles" />
-            <StatsCard title="Templates" value="6" icon={<FileText className="w-6 h-6" />} trend="↑ 1 new template" />
-            <StatsCard title="Saved Jobs" value="12" icon={<Heart className="w-6 h-6" />} trend="↑ 3 new saves" />
+            {isLoading ? (
+              <>
+                <StatsCard title="Active Jobs" value="..." icon={<Briefcase className="w-6 h-6" />} />
+                <StatsCard title="Profiles" value="..." icon={<Users className="w-6 h-6" />} />
+                <StatsCard title="Templates" value="..." icon={<FileText className="w-6 h-6" />} />
+                <StatsCard title="Saved Jobs" value="..." icon={<Heart className="w-6 h-6" />} />
+              </>
+            ) : (
+              <>
+                <StatsCard
+                  title="Active Jobs"
+                  value={stats?.activeJobs.value ?? 0}
+                  icon={<Briefcase className="w-6 h-6" />}
+                  trend={stats?.activeJobs.trend}
+                />
+                <StatsCard
+                  title="Profiles"
+                  value={stats?.profiles.value ?? 0}
+                  icon={<Users className="w-6 h-6" />}
+                  trend={stats?.profiles.trend}
+                />
+                <StatsCard
+                  title="Templates"
+                  value={stats?.templates.value ?? 0}
+                  icon={<FileText className="w-6 h-6" />}
+                  trend={stats?.templates.trend}
+                />
+                <StatsCard
+                  title="Saved Jobs"
+                  value={stats?.savedJobs.value ?? 0}
+                  icon={<Heart className="w-6 h-6" />}
+                  trend={stats?.savedJobs.trend}
+                />
+              </>
+            )}
           </div>
 
           {/* Quick Actions */}
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Button className="bg-primary hover:bg-orange-600 text-primary-foreground h-12">Browse Jobs</Button>
-              <Button variant="outline" className="border-border h-12 bg-transparent">
+              <Button
+                onClick={() => router.push("/dashboard/jobs-feed")}
+                className="bg-primary hover:bg-orange-600 text-primary-foreground h-12"
+              >
+                Browse Jobs
+              </Button>
+              <Button
+                onClick={() => router.push("/dashboard/profiles")}
+                variant="outline"
+                className="border-border h-12 bg-transparent"
+              >
                 Create Profile
               </Button>
-              <Button variant="outline" className="border-border h-12 bg-transparent">
+              <Button
+                onClick={() => router.push("/dashboard/jobs-feed")}
+                variant="outline"
+                className="border-border h-12 bg-transparent"
+              >
                 Write Proposal
               </Button>
-              <Button variant="outline" className="border-border h-12 bg-transparent">
+              <Button
+                onClick={() => router.push("/dashboard/templates")}
+                variant="outline"
+                className="border-border h-12 bg-transparent"
+              >
                 View Templates
               </Button>
             </div>
@@ -46,29 +140,30 @@ export default function DashboardPage() {
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-4">Recent Activity</h2>
             <div className="bg-card border border-border rounded-lg p-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between pb-4 border-b border-border">
-                  <div>
-                    <p className="font-medium text-foreground">Saved "MERN Stack Event Management Web App"</p>
-                    <p className="text-sm text-muted-foreground">2 hours ago</p>
-                  </div>
-                  <span className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-full">Saved</span>
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading activity...</div>
+              ) : activities.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">No recent activity</div>
+              ) : (
+                <div className="space-y-4">
+                  {activities.map((activity, index) => (
+                    <div
+                      key={activity.id}
+                      className={`flex items-center justify-between ${
+                        index < activities.length - 1 ? "pb-4 border-b border-border" : ""
+                      }`}
+                    >
+                      <div>
+                        <p className="font-medium text-foreground">{activity.title}</p>
+                        <p className="text-sm text-muted-foreground">{activity.time}</p>
+                      </div>
+                      <span className={`text-xs px-3 py-1 rounded-full ${activity.badgeColor}`}>
+                        {activity.badge}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center justify-between pb-4 border-b border-border">
-                  <div>
-                    <p className="font-medium text-foreground">Created new profile "Full Stack Developer"</p>
-                    <p className="text-sm text-muted-foreground">5 hours ago</p>
-                  </div>
-                  <span className="text-xs bg-green-500/10 text-green-600 px-3 py-1 rounded-full">Created</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-foreground">Submitted proposal for "React Dashboard"</p>
-                    <p className="text-sm text-muted-foreground">1 day ago</p>
-                  </div>
-                  <span className="text-xs bg-blue-500/10 text-blue-600 px-3 py-1 rounded-full">Submitted</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

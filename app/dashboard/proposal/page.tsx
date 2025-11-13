@@ -1,14 +1,57 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Bold, Italic, List } from "lucide-react"
+
+interface Template {
+  id: string
+  name: string
+  content: string
+}
 
 export default function ProposalPage() {
   const [template, setTemplate] = useState("")
   const [profile, setProfile] = useState("")
   const [portfolio, setPortfolio] = useState("")
   const [content, setContent] = useState("")
+  const [templates, setTemplates] = useState<Template[]>([])
+
+  useEffect(() => {
+    fetchTemplates()
+  }, [])
+
+  const fetchTemplates = async () => {
+    try {
+      const response = await fetch("/api/templates")
+      if (response.ok) {
+        const data = await response.json()
+        setTemplates(
+          data.templates.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            content: t.content,
+          }))
+        )
+      }
+    } catch (error) {
+      console.error("Error fetching templates:", error)
+    }
+  }
+
+  const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedTemplateId = e.target.value
+    setTemplate(selectedTemplateId)
+    
+    if (selectedTemplateId) {
+      const selectedTemplate = templates.find((t) => t.id === selectedTemplateId)
+      if (selectedTemplate) {
+        setContent(selectedTemplate.content)
+      }
+    } else {
+      setContent("")
+    }
+  }
 
   const handleGenerateProposal = () => {
     // AI proposal generation would happen here
@@ -32,12 +75,15 @@ export default function ProposalPage() {
               <label className="block text-sm font-medium text-foreground mb-2">Template</label>
               <select
                 value={template}
-                onChange={(e) => setTemplate(e.target.value)}
+                onChange={handleTemplateChange}
                 className="w-full px-4 py-2 bg-card border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none"
               >
                 <option value="">Choose Template</option>
-                <option value="template1">Template 1</option>
-                <option value="template2">Template 2</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
               </select>
             </div>
 

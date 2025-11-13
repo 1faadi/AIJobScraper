@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Heart, CheckCircle, Star, Users, DollarSign } from "lucide-react"
 
@@ -25,8 +27,81 @@ interface Job {
   bucket?: string
 }
 
-export function JobCard({ job }: { job: Job }) {
-  const [isSaved, setIsSaved] = useState(false)
+interface JobCardProps {
+  job: Job
+  isSaved?: boolean
+  onSaveChange?: (jobId: string, isSaved: boolean) => void
+}
+
+export function JobCard({ job, isSaved: initialIsSaved, onSaveChange }: JobCardProps) {
+  const router = useRouter()
+  const { user } = useAuth()
+  const [isSaved, setIsSaved] = useState(initialIsSaved || false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    const checkSavedStatus = async () => {
+      if (!user?.id) return
+      
+      try {
+        const response = await fetch(`/api/saved-jobs?userId=${user.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          const saved = data.savedJobs?.includes(job.id) || false
+          setIsSaved(saved)
+        }
+      } catch (error) {
+        console.error("Error checking saved status:", error)
+      }
+    }
+
+    checkSavedStatus()
+  }, [job.id, user?.id])
+
+  const handleSaveToggle = async () => {
+    if (!user?.id) {
+      alert("Please log in to save jobs")
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      if (isSaved) {
+        // Unsave job
+        const response = await fetch("/api/saved-jobs", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id, jobId: job.id }),
+        })
+
+        if (response.ok) {
+          setIsSaved(false)
+          if (onSaveChange) onSaveChange(job.id, false)
+        } else {
+          throw new Error("Failed to unsave job")
+        }
+      } else {
+        // Save job
+        const response = await fetch("/api/saved-jobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id, jobId: job.id }),
+        })
+
+        if (response.ok) {
+          setIsSaved(true)
+          if (onSaveChange) onSaveChange(job.id, true)
+        } else {
+          throw new Error("Failed to save job")
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling save:", error)
+      alert(error instanceof Error ? error.message : "Failed to save job")
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <div className="bg-card border border-border rounded-lg p-6 hover:shadow-md transition-shadow">
@@ -87,10 +162,16 @@ export function JobCard({ job }: { job: Job }) {
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        <Button className="flex-1 bg-primary hover:bg-orange-600 text-primary-foreground">Write Proposal</Button>
+        <Button 
+          onClick={() => router.push(`/dashboard/jobs-feed/${job.id}/proposal`)}
+          className="flex-1 bg-primary hover:bg-orange-600 text-primary-foreground"
+        >
+          Write Proposal
+        </Button>
         <button
-          onClick={() => setIsSaved(!isSaved)}
-          className={`p-3 rounded-lg border transition-colors ${
+          onClick={handleSaveToggle}
+          disabled={isSaving}
+          className={`p-3 rounded-lg border transition-colors disabled:opacity-50 ${
             isSaved
               ? "bg-primary text-primary-foreground border-primary"
               : "border-border text-muted-foreground hover:text-foreground"

@@ -29,21 +29,61 @@ model User {
 }
 
 model Profile {
-  id             String   @id @default(cuid())
+  id             String        @id @default(cuid())
   name           String
   title           String
-  hourlyRate      String   // e.g., "$65/hr"
-  jobSuccess      String   // e.g., "100%"
-  experience      String?  // e.g., "6+ Years"
-  badge           String?  // e.g., "top-rated", "rising-talent", "expert"
-  overview        String?  // Profile description/overview
-  skills          String[] // Array of skills, e.g., ["React", "Node.js", "TypeScript"]
-  tags            String[] // Array of tags, e.g., ["frontend", "fullstack", "remote"]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  hourlyRate      String        // e.g., "$65/hr"
+  jobSuccess      String        // e.g., "100%"
+  experience      String?       // e.g., "6+ Years"
+  badge           String?       // e.g., "top-rated", "rising-talent", "expert"
+  overview        String?       // Profile description/overview
+  skills          String[]      // Array of skills, e.g., ["React", "Node.js", "TypeScript"]
+  tags            String[]      // Array of tags, e.g., ["frontend", "fullstack", "remote"]
+  portfolios      Portfolio[]
+  caseStudies     CaseStudy[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([name])
   @@index([title])
+}
+
+model Portfolio {
+  id          String   @id @default(cuid())
+  profileId  String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  category    String?  // e.g., "Script & Automation", "AI Integration"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([profileId])
+  @@index([category])
+}
+
+model CaseStudy {
+  id          String   @id @default(cuid())
+  profileId  String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  category    String?  // e.g., "Script & Automation", "AI Integration"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([profileId])
+  @@index([category])
+}
+
+model Template {
+  id        String   @id @default(cuid())
+  name      String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
 }
 
 model Job {
