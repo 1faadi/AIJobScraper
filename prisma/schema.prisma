@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FitBucket {
+  NOT_FIT
+  P70_PERCENT
+  BEST_FIT
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Profile {
+  id             String   @id @default(cuid())
+  name           String
+  title           String
+  hourlyRate      String   // e.g., "$65/hr"
+  jobSuccess      String   // e.g., "100%"
+  experience      String?  // e.g., "6+ Years"
+  badge           String?  // e.g., "top-rated", "rising-talent", "expert"
+  overview        String?  // Profile description/overview
+  skills          String[] // Array of skills, e.g., ["React", "Node.js", "TypeScript"]
+  tags            String[] // Array of tags, e.g., ["frontend", "fullstack", "remote"]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([name])
+  @@index([title])
+}
+
+model Job {
+  id                 Int       @id @default(autoincrement())
+  jobTitle           String
+  jobDescription     String
+  clientDetailsRaw   String
+  skillsRaw          String
+  clientCountry      String
+  paymentVerified    Boolean
+  clientRating       Float
+  jobsPosted         Int?
+  hireRate           Float?    // 0..1 (55% => 0.55)
+  totalSpent         Float?    // USD
+  hires              Int?
+  activeJobs         Int?
+  avgHourlyPaid      Float?
+  totalHours         Int?
+  memberSince        String?   // keep as string to avoid date parsing issues
+  aiMatchPercent     Float?    // 0..1 (optional)
+  bucket             FitBucket
+  fitScore           Int?       // 0, 70, or 100
+  reasonsNotes       String?
+  category           String?
+  industry           String?
+  createdAt          DateTime  @default(now())
+
+  @@index([clientCountry])
+  @@index([bucket])
+}

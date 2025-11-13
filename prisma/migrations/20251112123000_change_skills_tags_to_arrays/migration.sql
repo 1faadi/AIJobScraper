@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "Profile" DROP COLUMN IF EXISTS "skills",
+DROP COLUMN IF EXISTS "tags";
+
+-- AlterTable
+ALTER TABLE "Profile" ADD COLUMN "skills" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN "tags" TEXT[] DEFAULT ARRAY[]::TEXT[];
+

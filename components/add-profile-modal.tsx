@@ -1,0 +1,228 @@
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { X } from "lucide-react"
+
+// Tag Input Component
+function TagInput({ tags, onTagsChange, placeholder }: { tags: string[]; onTagsChange: (tags: string[]) => void; placeholder: string }) {
+  const [inputValue, setInputValue] = useState("")
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && inputValue.trim()) {
+      e.preventDefault()
+      if (!tags.includes(inputValue.trim())) {
+        onTagsChange([...tags, inputValue.trim()])
+      }
+      setInputValue("")
+    } else if (e.key === "Backspace" && !inputValue && tags.length > 0) {
+      onTagsChange(tags.slice(0, -1))
+    }
+  }
+
+  const removeTag = (tagToRemove: string) => {
+    onTagsChange(tags.filter((tag) => tag !== tagToRemove))
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 p-2 min-h-[42px] bg-background border border-border rounded-lg focus-within:ring-2 focus-within:ring-primary">
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-md text-sm"
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={() => removeTag(tag)}
+              className="hover:bg-primary/20 rounded-full p-0.5"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={tags.length === 0 ? placeholder : ""}
+          className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm"
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">Type and press Enter to add</p>
+    </div>
+  )
+}
+
+interface AddProfileModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onAdd: (profile: any) => void
+}
+
+export function AddProfileModal({ isOpen, onClose, onAdd }: AddProfileModalProps) {
+  const [formData, setFormData] = useState({
+    name: "",
+    jobSuccessRate: "100%",
+    hourlyRate: "$65/hr",
+    badge: "",
+    title: "",
+    overview: "",
+    skills: [] as string[],
+    tags: [] as string[],
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onAdd(formData)
+    setFormData({
+      name: "",
+      jobSuccessRate: "100%",
+      hourlyRate: "$65/hr",
+      badge: "",
+      title: "",
+      overview: "",
+      skills: [],
+      tags: [],
+    })
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-card rounded-lg shadow-lg max-w-md w-full mx-4">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Add Profile</h2>
+            <p className="text-sm text-muted-foreground mt-1">Fill all the details to get the better AI response</p>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg">
+            <X className="w-5 h-5 text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Profile Name */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Profile Name</label>
+            <Input
+              placeholder="Profile Name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+              className="bg-background border-border"
+            />
+          </div>
+
+          {/* Job Success Rate */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Job Success Rate</label>
+            <Input
+              placeholder="100%"
+              value={formData.jobSuccessRate}
+              onChange={(e) => setFormData({ ...formData, jobSuccessRate: e.target.value })}
+              className="bg-background border-border"
+            />
+          </div>
+
+          {/* Hourly Rate */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Hourly Rate</label>
+            <Input
+              placeholder="$320/hr"
+              value={formData.hourlyRate}
+              onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
+              className="bg-background border-border"
+            />
+          </div>
+
+          {/* Badge */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Badge</label>
+            <select
+              value={formData.badge}
+              onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
+              className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none"
+            >
+              <option value="">Choose Badge</option>
+              <option value="top-rated">Top Rated</option>
+              <option value="rising-talent">Rising Talent</option>
+              <option value="expert">Expert</option>
+            </select>
+          </div>
+
+          {/* Profile Title */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Profile Title</label>
+            <Input
+              placeholder="Profile Title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className="bg-background border-border"
+            />
+          </div>
+
+          {/* Profile Overview */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Profile Overview</label>
+            <div className="relative">
+              <textarea
+                placeholder="The message you wish to send to the recipient..."
+                value={formData.overview}
+                onChange={(e) => setFormData({ ...formData, overview: e.target.value })}
+                maxLength={320}
+                rows={5}
+                className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none resize-none"
+              />
+              <span className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                {formData.overview.length}/320
+              </span>
+            </div>
+          </div>
+
+          {/* Skills */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Skills</label>
+            <TagInput
+              tags={formData.skills}
+              onTagsChange={(skills) => setFormData({ ...formData, skills })}
+              placeholder="Type skill and press Enter (e.g., React, Node.js)"
+            />
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Tags</label>
+            <TagInput
+              tags={formData.tags}
+              onTagsChange={(tags) => setFormData({ ...formData, tags })}
+              placeholder="Type tag and press Enter (e.g., frontend, remote)"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-border rounded-lg text-foreground hover:bg-muted transition-colors"
+            >
+              Close
+            </button>
+            <Button type="submit" className="flex-1 bg-primary hover:bg-orange-600 text-primary-foreground">
+              Add
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
