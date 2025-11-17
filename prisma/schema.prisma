@@ -17,13 +17,14 @@ enum FitBucket {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String      @id @default(cuid())
+  email     String      @unique
   password  String
   name      String
   avatar    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  savedJobs SavedJob[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   @@map("users")
 }
@@ -84,6 +85,18 @@ model Template {
   updatedAt DateTime @updatedAt
 
   @@index([name])
+}
+
+model SavedJob {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId     String   // Store as string to match Job.id (which is Int but converted to string in API)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, jobId])
+  @@index([userId])
+  @@index([jobId])
 }
 
 model Job {

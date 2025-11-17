@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { JobsFeedHeader } from "@/components/jobs-feed-header"
-import { JobCard } from "@/components/job-card"
+import { JobCardWithDetails } from "@/components/job-card"
+import TopHeader from "@/components/jobs/top-header"
+import TabsStrip from "@/components/jobs/tabs-strip"
 
 interface Job {
   id: string
@@ -23,6 +24,7 @@ interface Job {
   matchScore: number
   fitScore?: number
   bucket?: string
+  clientCountry?: string
 }
 
 export default function JobsFeedPage() {
@@ -54,28 +56,33 @@ export default function JobsFeedPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <JobsFeedHeader onTabChange={setActiveTab} activeTab={activeTab} />
-      <div className="flex-1 overflow-auto p-8">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-muted-foreground">Loading jobs...</div>
-          </div>
-        ) : error ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-red-500">{error}</div>
-          </div>
-        ) : jobs.length === 0 ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-muted-foreground">No jobs found</div>
-          </div>
-        ) : (
-          <div className="space-y-4 max-w-4xl">
-            {jobs.map((job) => (
-              <JobCard key={job.id} job={job} />
-            ))}
-          </div>
-        )}
+    <div className="flex flex-col h-full bg-[var(--bg)]">
+      <div className="mx-auto w-full px-6 py-4">
+        <TopHeader />
+        <TabsStrip activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
+      <div className="flex-1 overflow-auto">
+        <div className="mx-auto w-full  px-6 pb-8">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-[var(--muted)]">Loading jobs...</div>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-red-500">{error}</div>
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-[var(--muted)]">No jobs found</div>
+            </div>
+          ) : (
+            <div className="space-y-6 mt-6">
+              {jobs.map((job) => (
+                <JobCardWithDetails key={job.id} job={job} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

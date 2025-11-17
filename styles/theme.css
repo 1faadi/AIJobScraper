@@ -1,0 +1,14 @@
+:root {
+  --brand-orange: #FF6A00;
+  --ink: #0F172A;         /* heading text */
+  --muted: #64748B;       /* gray text */
+  --line: #E6EDF3;
+  --bg: #F7F8FA;
+  --field: #FFFFFF;
+  --tab-outline: #9CC7FF; /* subtle blue outline seen in screenshot */
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-soft: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+

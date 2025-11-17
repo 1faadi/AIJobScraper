@@ -92,12 +92,17 @@ export default function DashboardPage() {
                   icon={<FileText className="w-6 h-6" />}
                   trend={stats?.templates.trend}
                 />
-                <StatsCard
-                  title="Saved Jobs"
-                  value={stats?.savedJobs.value ?? 0}
-                  icon={<Heart className="w-6 h-6" />}
-                  trend={stats?.savedJobs.trend}
-                />
+                <div
+                  onClick={() => router.push("/dashboard/saved-jobs")}
+                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  <StatsCard
+                    title="Saved Jobs"
+                    value={stats?.savedJobs.value ?? 0}
+                    icon={<Heart className="w-6 h-6" />}
+                    trend={stats?.savedJobs.trend}
+                  />
+                </div>
               </>
             )}
           </div>

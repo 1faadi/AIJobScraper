@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-// In-memory saved jobs store (same as in saved-jobs route)
-const savedJobsStore: Map<string, string[]> = new Map()
-
 export async function GET() {
   try {
     // Fetch counts from database
-    const [jobsCount, profilesCount, templatesCount] = await Promise.all([
+    const [jobsCount, profilesCount, templatesCount, savedJobsCount] = await Promise.all([
       prisma.job.count({
         where: {
           bucket: {
@@ -17,21 +14,15 @@ export async function GET() {
       }),
       prisma.profile.count(),
       prisma.template.count(),
+      prisma.savedJob.count(),
     ])
-
-    // Get saved jobs count from in-memory store
-    // Sum all users' saved jobs
-    let savedJobsCount = 0
-    savedJobsStore.forEach((jobs) => {
-      savedJobsCount += jobs.length
-    })
 
     // Calculate trends (for now, we'll use simple logic)
     // In a real app, you'd compare with previous period
     const jobsTrend = jobsCount > 0 ? `↑ ${Math.floor(jobsCount * 0.12)} from last week` : "No jobs yet"
     const profilesTrend = profilesCount > 0 ? `↑ ${Math.max(1, Math.floor(profilesCount * 0.25))} new profiles` : "No profiles yet"
-    const templatesTrend = "↑ 1 new template" // Mock for now
-    const savedJobsTrend = "↑ 3 new saves" // Mock for now
+    const templatesTrend = templatesCount > 0 ? `↑ ${Math.max(1, Math.floor(templatesCount * 0.2))} new templates` : "No templates yet"
+    const savedJobsTrend = savedJobsCount > 0 ? `↑ ${Math.max(1, Math.floor(savedJobsCount * 0.25))} new saves` : "No saved jobs yet"
 
     return NextResponse.json({
       stats: {

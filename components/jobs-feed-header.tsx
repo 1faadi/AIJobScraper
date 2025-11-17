@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Search, Bell } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export interface JobsFeedHeaderProps {
   activeTab?: string
@@ -11,7 +12,7 @@ export interface JobsFeedHeaderProps {
 
 export function JobsFeedHeader(props: JobsFeedHeaderProps) {
   const { activeTab: externalActiveTab, onTabChange } = props
-  const [selectedProfile, setSelectedProfile] = useState("all")
+  const [selectedProfile, setSelectedProfile] = useState("Williams Sophia")
   const [internalActiveTab, setInternalActiveTab] = useState("mostRecent")
   
   const activeTab = externalActiveTab ?? internalActiveTab
@@ -25,22 +26,31 @@ export function JobsFeedHeader(props: JobsFeedHeaderProps) {
   }
 
   return (
-    <div className="bg-card border-b border-border p-8">
+    <div className="bg-white border-b border-[#E7ECF2] px-8 py-6">
       {/* Top Row */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Welcome back to BXTrack Solutions 👋</h1>
-          <p className="text-sm text-muted-foreground mt-1">Sophia Williams</p>
+        <div className="flex items-center gap-3">
+          <Avatar className="w-10 h-10">
+            <AvatarImage src="/placeholder-user.jpg" />
+            <AvatarFallback>SW</AvatarFallback>
+          </Avatar>
+          <div>
+            <h1 className="text-lg font-semibold text-[#0F172A]">
+              Welcome back to Synergy. <span className="font-normal">Sophia Williams</span>
+            </h1>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-            <Search className="w-5 h-5 text-muted-foreground" />
+        <div className="flex items-center gap-3">
+          <button className="p-2 hover:bg-[#F7F8FA] rounded-lg transition-colors">
+            <Search className="w-5 h-5 text-[#64748B]" />
           </button>
-          <button className="p-2 hover:bg-muted rounded-lg transition-colors relative">
-            <Bell className="w-5 h-5 text-muted-foreground" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          <button className="p-2 hover:bg-[#F7F8FA] rounded-lg transition-colors relative">
+            <Bell className="w-5 h-5 text-[#64748B]" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
-          <Button className="bg-primary hover:bg-orange-600 text-primary-foreground">Jobs Feed</Button>
+          <Button className="bg-[#FF6A00] hover:bg-[#E55A00] text-white rounded-lg px-4 py-2 font-medium shadow-sm">
+            Jobs Feed
+          </Button>
         </div>
       </div>
 
@@ -50,14 +60,14 @@ export function JobsFeedHeader(props: JobsFeedHeaderProps) {
           <select
             value={selectedProfile}
             onChange={(e) => setSelectedProfile(e.target.value)}
-            className="px-4 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:ring-2 focus:ring-primary outline-none"
+            className="px-4 py-2 bg-white border border-[#E7ECF2] rounded-lg text-sm text-[#0F172A] focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] outline-none"
           >
-            <option value="all">Select Profile</option>
+            <option value="Williams Sophia">Williams Sophia</option>
             <option value="profile1">Profile 1</option>
             <option value="profile2">Profile 2</option>
           </select>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-1">
           {[
             { id: "mostRecent", label: "Most Recent" },
             { id: "bestMatches", label: "Best Matches" },
@@ -68,8 +78,8 @@ export function JobsFeedHeader(props: JobsFeedHeaderProps) {
               onClick={() => handleTabChange(tab.id)}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? "text-primary border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "text-[#FF6A00] border-b-2 border-[#FF6A00] pb-2"
+                  : "text-[#64748B] hover:text-[#0F172A]"
               }`}
             >
               {tab.label}

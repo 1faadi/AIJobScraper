@@ -3,11 +3,27 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Bold, Italic, List } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { ProposalPreviewModal } from "@/components/proposals/proposal-preview-modal"
 
 interface Template {
   id: string
   name: string
   content: string
+}
+
+interface Profile {
+  id: string
+  name: string
+  title?: string
+  overview?: string
+  skills?: string[]
+}
+
+interface Portfolio {
+  id: string
+  title: string
+  description?: string
 }
 
 export default function ProposalPage() {
@@ -16,10 +32,27 @@ export default function ProposalPage() {
   const [portfolio, setPortfolio] = useState("")
   const [content, setContent] = useState("")
   const [templates, setTemplates] = useState<Template[]>([])
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([])
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [generatedProposal, setGeneratedProposal] = useState<string>("")
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchTemplates()
+    fetchProfiles()
   }, [])
+
+  useEffect(() => {
+    if (profile) {
+      fetchPortfolios(profile)
+    } else {
+      setPortfolios([])
+      setPortfolio("")
+    }
+  }, [profile])
 
   const fetchTemplates = async () => {
     try {
@@ -39,6 +72,31 @@ export default function ProposalPage() {
     }
   }
 
+  const fetchProfiles = async () => {
+    try {
+      const response = await fetch("/api/profiles")
+      if (response.ok) {
+        const data = await response.json()
+        setProfiles(data.profiles || [])
+      }
+    } catch (error) {
+      console.error("Error fetching profiles:", error)
+    }
+  }
+
+  const fetchPortfolios = async (profileId: string) => {
+    try {
+      const response = await fetch(`/api/profiles/${profileId}/portfolios`)
+      if (response.ok) {
+        const data = await response.json()
+        setPortfolios(data.portfolios || [])
+      }
+    } catch (error) {
+      console.error("Error fetching portfolios:", error)
+      setPortfolios([])
+    }
+  }
+
   const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedTemplateId = e.target.value
     setTemplate(selectedTemplateId)
@@ -53,9 +111,86 @@ export default function ProposalPage() {
     }
   }
 
-  const handleGenerateProposal = () => {
-    // AI proposal generation would happen here
-    console.log("Generating proposal with:", { template, profile, portfolio, content })
+  const handleGenerateProposal = async () => {
+    if (!content.trim()) {
+      setError("Please provide proposal content")
+      return
+    }
+
+    setIsGenerating(true)
+    setError(null)
+
+    try {
+      // Get selected profile and portfolio data
+      const selectedProfile = profiles.find((p) => p.id === profile)
+      const selectedPortfolio = portfolios.find((p) => p.id === portfolio)
+      const selectedTemplate = templates.find((t) => t.id === template)
+
+      // Get job description from the preview panel (currently hardcoded, but can be made dynamic)
+      const jobDescription = `Full Stack Web Application and AI & Chatbot Integration with WhatsApp marketing
+
+Job Description:
+We are looking for an experienced full-stack developer to build a comprehensive web application with integrated AI chatbot capabilities and WhatsApp marketing automation. The project requires expertise in modern web technologies and AI integration.
+
+Key Responsibilities & Tasks:
+1. Design and develop responsive web application
+2. Integrate AI chatbot for customer support
+3. Implement WhatsApp marketing automation
+4. Set up database and backend infrastructure
+5. Deploy and maintain the application`
+
+      console.log("Sending proposal generation request...", {
+        hasTemplate: !!selectedTemplate,
+        hasProfile: !!selectedProfile,
+        hasPortfolio: !!selectedPortfolio,
+        contentLength: content.length,
+      })
+
+      const response = await fetch("/api/proposals/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          template: selectedTemplate?.content || "",
+          profile: selectedProfile || "",
+          portfolio: selectedPortfolio || "",
+          content: content,
+          jobDescription: jobDescription,
+        }),
+      })
+
+      const data = await response.json()
+      console.log("API Response:", { ok: response.ok, data })
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate proposal")
+      }
+
+      if (data.proposal) {
+        console.log("Setting generated proposal content, length:", data.proposal.length)
+        setGeneratedProposal(data.proposal)
+        setShowPreviewModal(true)
+        toast({
+          title: "Proposal Generated",
+          description: "Review your AI-generated proposal in the preview.",
+        })
+      } else {
+        console.error("No proposal in response:", data)
+        throw new Error("No proposal content received from API")
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to generate proposal"
+      setError(errorMessage)
+      console.error("Error generating proposal:", err)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   return (
@@ -96,8 +231,11 @@ export default function ProposalPage() {
                 className="w-full px-4 py-2 bg-card border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none"
               >
                 <option value="">Select Profile</option>
-                <option value="profile1">Profile 1</option>
-                <option value="profile2">Profile 2</option>
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.title ? `- ${p.title}` : ""}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -107,11 +245,15 @@ export default function ProposalPage() {
               <select
                 value={portfolio}
                 onChange={(e) => setPortfolio(e.target.value)}
-                className="w-full px-4 py-2 bg-card border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none"
+                disabled={!profile}
+                className="w-full px-4 py-2 bg-card border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">Select Portfolio</option>
-                <option value="portfolio1">Portfolio 1</option>
-                <option value="portfolio2">Portfolio 2</option>
+                {portfolios.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -145,6 +287,13 @@ export default function ProposalPage() {
               </div>
             </div>
 
+            {/* Error Message */}
+            {error && (
+              <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex gap-3">
               <button className="flex-1 px-4 py-2 border border-border rounded-lg text-foreground hover:bg-muted transition-colors">
@@ -152,9 +301,10 @@ export default function ProposalPage() {
               </button>
               <Button
                 onClick={handleGenerateProposal}
-                className="flex-1 bg-primary hover:bg-orange-600 text-primary-foreground"
+                disabled={isGenerating}
+                className="flex-1 bg-primary hover:bg-orange-600 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Generate Proposal
+                {isGenerating ? "Generating..." : "Generate Proposal"}
               </Button>
             </div>
           </div>
@@ -192,6 +342,20 @@ export default function ProposalPage() {
           </div>
         </div>
       </div>
+
+      {/* Proposal Preview Modal */}
+      <ProposalPreviewModal
+        open={showPreviewModal}
+        onOpenChange={setShowPreviewModal}
+        proposal={generatedProposal}
+        onAccept={(proposal) => {
+          setContent(proposal)
+          toast({
+            title: "Proposal Applied",
+            description: "The generated proposal has been added to your content.",
+          })
+        }}
+      />
     </div>
   )
 }
