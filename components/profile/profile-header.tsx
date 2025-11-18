@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Star, CheckCircle2 } from "lucide-react"
+import { Star, CheckCircle2, User } from "lucide-react"
 
 interface ProfileHeaderProps {
   name: string
@@ -42,9 +42,11 @@ export function ProfileHeader({ name, title, badge, jobSuccess, onAddProfile }: 
       {onAddProfile && (
         <Button
           onClick={onAddProfile}
-          className="bg-primary hover:bg-orange-600 text-primary-foreground"
+          variant="outline"
+          className="bg-white border border-gray-300 text-foreground hover:bg-gray-50 flex items-center gap-2"
         >
-          👤 Add Profile
+          <User className="w-4 h-4" />
+          Add Profile
         </Button>
       )}
     </div>

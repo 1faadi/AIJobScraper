@@ -27,15 +27,39 @@ interface Job {
   clientCountry?: string
 }
 
+interface Profile {
+  id: string
+  name: string
+  title?: string
+}
+
 export default function JobsFeedPage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("mostRecent")
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [selectedProfile, setSelectedProfile] = useState("")
 
   useEffect(() => {
     fetchJobs(activeTab)
+    fetchProfiles()
   }, [activeTab])
+
+  const fetchProfiles = async () => {
+    try {
+      const response = await fetch("/api/profiles")
+      if (response.ok) {
+        const data = await response.json()
+        setProfiles(data.profiles || [])
+        if (data.profiles && data.profiles.length > 0) {
+          setSelectedProfile(data.profiles[0].id)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching profiles:", error)
+    }
+  }
 
   const fetchJobs = async (tab: string) => {
     setIsLoading(true)
@@ -59,7 +83,36 @@ export default function JobsFeedPage() {
     <div className="flex flex-col h-full bg-[var(--bg)]">
       <div className="mx-auto w-full px-6 py-4">
         <TopHeader />
-        <TabsStrip activeTab={activeTab} onTabChange={setActiveTab} />
+        
+        {/* Select Profile Dropdown */}
+        <div className="mt-4 flex flex-col">
+          <label className="mb-1 text-[12px] font-medium text-[var(--muted)]">Select Profile</label>
+          <div className="relative inline-block">
+            <select
+              value={selectedProfile}
+              onChange={(e) => setSelectedProfile(e.target.value)}
+              className="h-[38px] w-[426px] rounded-[var(--radius-md)] border border-[var(--line)] bg-[var(--field)] px-3 pr-9 text-[13px] text-[var(--ink)] cursor-pointer appearance-none outline-none focus:ring-2 focus:ring-[#eaf3ff]"
+            >
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.name} {profile.title ? `- ${profile.title}` : ""}
+                </option>
+              ))}
+            </select>
+            <svg
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)]"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Tabs Strip */}
+        <TabsStrip activeTab={activeTab} onTabChange={setActiveTab} hideProfileSelector={true} hideSearch={false} />
       </div>
       <div className="flex-1 overflow-auto">
         <div className="mx-auto w-full  px-6 pb-8">

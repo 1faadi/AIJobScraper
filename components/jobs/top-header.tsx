@@ -22,16 +22,10 @@ export default function TopHeader() {
 
       {/* Right: search input, bell, orange CTA */}
       <div className="flex items-center gap-3">
-        {/* Search input */}
-        <div className="hidden md:block">
-          <div className="relative">
-            <input
-              placeholder="Search"
-              className="h-[38px] w-[240px] rounded-[var(--radius-md)] border border-[var(--line)] bg-[var(--field)] pl-10 pr-3 text-[13px] text-[var(--ink)] outline-none focus:ring-4 focus:ring-[#eaf3ff]"
-            />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)] pointer-events-none" />
-          </div>
-        </div>
+        {/* Search icon button */}
+        <button className="hidden md:grid h-10 w-10 place-items-center rounded-[var(--radius-md)] border border-[var(--line)] bg-[var(--field)] hover:bg-[#fafbfd] transition-colors">
+          <Search className="h-5 w-5 text-[var(--muted)]" />
+        </button>
 
         {/* Bell icon button */}
         <button className="grid h-10 w-10 place-items-center rounded-[var(--radius-md)] border border-[var(--line)] bg-[var(--field)] hover:bg-[#fafbfd] transition-colors">

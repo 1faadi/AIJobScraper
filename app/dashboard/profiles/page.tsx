@@ -131,7 +131,7 @@ export default function ProfilesPage() {
           <div className="bg-card border border-border rounded-lg overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border bg-muted">
+                <tr className="border-b border-border bg-gray-100">
                   <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">Name</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">Profile Title</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">Hourly Rate</th>
@@ -151,7 +151,7 @@ export default function ProfilesPage() {
                   paginatedProfiles.map((profile) => (
                 <tr 
                   key={profile.id} 
-                  className="border-b border-border hover:bg-muted transition-colors cursor-pointer"
+                  className="border-b border-border hover:bg-gray-100 transition-colors cursor-pointer"
                   onClick={() => router.push(`/dashboard/profiles/${profile.id}`)}
                 >
                   <td className="px-6 py-4">

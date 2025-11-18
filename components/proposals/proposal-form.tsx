@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Bold, Italic, List } from "lucide-react"
+import { Bold, Italic, List, X, ChevronDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ProposalPreviewModal } from "./proposal-preview-modal"
 import { ProposalVariantsModal } from "./proposal-variants-modal"
@@ -39,7 +39,8 @@ export function ProposalForm({ jobId }: ProposalFormProps) {
   
   const [templateId, setTemplateId] = useState("")
   const [profileId, setProfileId] = useState("")
-  const [portfolioId, setPortfolioId] = useState("")
+  const [selectedPortfolioIds, setSelectedPortfolioIds] = useState<string[]>([])
+  const [portfolioInputValue, setPortfolioInputValue] = useState("")
   const [message, setMessage] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [profiles, setProfiles] = useState<ProfileOption[]>([])
@@ -70,7 +71,7 @@ export function ProposalForm({ jobId }: ProposalFormProps) {
       fetchCaseStudies(profileId)
     } else {
       setPortfolios([])
-      setPortfolioId("")
+      setSelectedPortfolioIds([])
       setCaseStudies([])
     }
   }, [profileId])
@@ -248,13 +249,13 @@ export function ProposalForm({ jobId }: ProposalFormProps) {
     try {
       // Get full profile and portfolio data
       const selectedProfile = profiles.find((p) => p.id === profileId)
-      const selectedPortfolio = portfolios.find((p) => p.id === portfolioId)
       const selectedTemplate = templates.find((t) => t.id === templateId)
+      const selectedPortfolios = portfolios.filter((p) => selectedPortfolioIds.includes(p.id))
 
       console.log("Sending proposal generation request...", {
         hasTemplate: !!selectedTemplate,
         hasProfile: !!selectedProfile,
-        hasPortfolio: !!selectedPortfolio,
+        selectedPortfoliosCount: selectedPortfolios.length,
         contentLength: message.length,
         hasJobDescription: !!jobDescription,
       })
@@ -268,7 +269,7 @@ export function ProposalForm({ jobId }: ProposalFormProps) {
         body: JSON.stringify({
           template: selectedTemplate?.content || "",
           profile: selectedProfile || "",
-          portfolios: portfolios.map(p => ({ id: p.id, title: p.title, description: p.description, category: "" })),
+          portfolios: selectedPortfolios.map(p => ({ id: p.id, title: p.title, description: p.description, category: "" })),
           caseStudies: caseStudies.map(cs => ({ id: cs.id, title: cs.title, description: cs.description, category: cs.category })),
           content: message,
           jobDescription: jobDescription || "",
@@ -435,26 +436,72 @@ export function ProposalForm({ jobId }: ProposalFormProps) {
           )}
         </div>
 
-        {/* Portfolio Selection */}
+        {/* Portfolio Selection - Multi-select with tags */}
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">
             Select Portfolio
           </label>
-          <select
-            value={portfolioId}
-            onChange={(e) => setPortfolioId(e.target.value)}
-            disabled={!profileId}
-            className={`w-full px-4 py-2 bg-background border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-              errors.portfolio ? "border-red-500" : "border-border"
-            }`}
-          >
-            <option value="">Select Portfolio</option>
-            {portfolios.map((portfolio) => (
-              <option key={portfolio.id} value={portfolio.id}>
-                {portfolio.title}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <div
+              className={`flex flex-wrap gap-2 p-2 pr-8 min-h-[42px] bg-background border rounded-lg text-foreground focus-within:ring-2 focus-within:ring-primary outline-none ${
+                errors.portfolio ? "border-red-500" : "border-border"
+              } ${!profileId ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              {selectedPortfolioIds.map((portfolioId) => {
+                const portfolio = portfolios.find((p) => p.id === portfolioId)
+                if (!portfolio) return null
+                return (
+                  <span
+                    key={portfolioId}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-md text-sm"
+                  >
+                    {portfolio.title}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (profileId) {
+                          setSelectedPortfolioIds(selectedPortfolioIds.filter((id) => id !== portfolioId))
+                        }
+                      }}
+                      className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                      disabled={!profileId}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )
+              })}
+              <select
+                value={portfolioInputValue}
+                onChange={(e) => {
+                  const selectedId = e.target.value
+                  if (selectedId && !selectedPortfolioIds.includes(selectedId)) {
+                    setSelectedPortfolioIds([...selectedPortfolioIds, selectedId])
+                    setPortfolioInputValue("")
+                  }
+                }}
+                onFocus={(e) => {
+                  if (!profileId) {
+                    e.target.blur()
+                  }
+                }}
+                disabled={!profileId}
+                className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm text-foreground cursor-pointer disabled:cursor-not-allowed appearance-none"
+              >
+                <option value="">{selectedPortfolioIds.length === 0 ? "Select Portfolio" : ""}</option>
+                {portfolios
+                  .filter((p) => !selectedPortfolioIds.includes(p.id))
+                  .map((portfolio) => (
+                    <option key={portfolio.id} value={portfolio.id}>
+                      {portfolio.title}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            {profileId && (
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            )}
+          </div>
           {errors.portfolio && (
             <p className="mt-1 text-sm text-red-500">{errors.portfolio}</p>
           )}
@@ -524,9 +571,25 @@ export function ProposalForm({ jobId }: ProposalFormProps) {
           <Button
             onClick={handleGenerate}
             disabled={isGenerating}
-            className="bg-primary hover:bg-orange-600 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-primary hover:bg-orange-600 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            {isGenerating ? "Generating..." : "Generate Proposal"}
+            {isGenerating ? (
+              <>
+                <div className="relative w-5 h-5 flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-lg bg-white/20 animate-pulse"></div>
+                  <div className="relative z-10 w-4 h-4 rounded bg-white flex items-center justify-center shadow-sm">
+                    <span className="text-[8px] font-bold text-primary">AI</span>
+                  </div>
+                  <div 
+                    className="absolute inset-0 rounded-lg border-2 border-transparent border-t-white/50 border-r-white/30 animate-spin" 
+                    style={{ animationDuration: '1s' }}
+                  ></div>
+                </div>
+                <span>Generating...</span>
+              </>
+            ) : (
+              "Generate Proposal"
+            )}
           </Button>
         </div>
       </div>
