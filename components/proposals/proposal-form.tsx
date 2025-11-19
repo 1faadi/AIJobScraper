@@ -498,7 +498,7 @@ export function ProposalForm({ jobId, job: jobData, onProfileChange }: ProposalF
                   </span>
                 )
               })}
-              <select
+          <select
                 value={portfolioInputValue}
                 onChange={(e) => {
                   const selectedId = e.target.value
@@ -512,18 +512,18 @@ export function ProposalForm({ jobId, job: jobData, onProfileChange }: ProposalF
                     e.target.blur()
                   }
                 }}
-                disabled={!profileId}
+            disabled={!profileId}
                 className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm text-foreground cursor-pointer disabled:cursor-not-allowed appearance-none"
-              >
+          >
                 <option value="">{selectedPortfolioIds.length === 0 ? "Select Portfolio" : ""}</option>
                 {portfolios
                   .filter((p) => !selectedPortfolioIds.includes(p.id))
                   .map((portfolio) => (
-                    <option key={portfolio.id} value={portfolio.id}>
-                      {portfolio.title}
-                    </option>
-                  ))}
-              </select>
+              <option key={portfolio.id} value={portfolio.id}>
+                {portfolio.title}
+              </option>
+            ))}
+          </select>
             </div>
             {profileId && (
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />

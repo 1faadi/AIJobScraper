@@ -128,16 +128,16 @@ export function AddProfileModal({ isOpen, onClose, onAdd, profile }: AddProfileM
     onAdd(profileData)
     if (!profile) {
       // Only reset if not in edit mode
-      setFormData({
-        name: "",
-        jobSuccessRate: "100%",
-        hourlyRate: "$65/hr",
-        badge: "",
-        title: "",
-        overview: "",
-        skills: [],
-        tags: [],
-      })
+    setFormData({
+      name: "",
+      jobSuccessRate: "100%",
+      hourlyRate: "$65/hr",
+      badge: "",
+      title: "",
+      overview: "",
+      skills: [],
+      tags: [],
+    })
     }
   }
 
@@ -161,102 +161,102 @@ export function AddProfileModal({ isOpen, onClose, onAdd, profile }: AddProfileM
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           {/* Scrollable Content */}
           <div className="p-4 space-y-3 overflow-y-auto flex-1">
-            {/* Profile Name */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Profile Name</label>
-              <Input
-                placeholder="Profile Name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-                className="bg-background border-border"
-              />
-            </div>
+          {/* Profile Name */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Profile Name</label>
+            <Input
+              placeholder="Profile Name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+              className="bg-background border-border"
+            />
+          </div>
 
-            {/* Job Success Rate */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Job Success Rate</label>
-              <Input
-                placeholder="100%"
-                value={formData.jobSuccessRate}
-                onChange={(e) => setFormData({ ...formData, jobSuccessRate: e.target.value })}
-                className="bg-background border-border"
-              />
-            </div>
+          {/* Job Success Rate */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Job Success Rate</label>
+            <Input
+              placeholder="100%"
+              value={formData.jobSuccessRate}
+              onChange={(e) => setFormData({ ...formData, jobSuccessRate: e.target.value })}
+              className="bg-background border-border"
+            />
+          </div>
 
-            {/* Hourly Rate */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Hourly Rate</label>
-              <Input
-                placeholder="$320/hr"
-                value={formData.hourlyRate}
-                onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
-                className="bg-background border-border"
-              />
-            </div>
+          {/* Hourly Rate */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Hourly Rate</label>
+            <Input
+              placeholder="$320/hr"
+              value={formData.hourlyRate}
+              onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
+              className="bg-background border-border"
+            />
+          </div>
 
-            {/* Badge */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Badge</label>
-              <select
-                value={formData.badge}
-                onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none"
-              >
-                <option value="">Choose Badge</option>
-                <option value="top-rated">Top Rated</option>
-                <option value="rising-talent">Rising Talent</option>
-                <option value="expert">Expert</option>
-              </select>
-            </div>
+          {/* Badge */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Badge</label>
+            <select
+              value={formData.badge}
+              onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
+              className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none"
+            >
+              <option value="">Choose Badge</option>
+              <option value="top-rated">Top Rated</option>
+              <option value="rising-talent">Rising Talent</option>
+              <option value="expert">Expert</option>
+            </select>
+          </div>
 
-            {/* Profile Title */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Profile Title</label>
-              <Input
-                placeholder="Profile Title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="bg-background border-border"
-              />
-            </div>
+          {/* Profile Title */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Profile Title</label>
+            <Input
+              placeholder="Profile Title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className="bg-background border-border"
+            />
+          </div>
 
-            {/* Profile Overview */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Profile Overview</label>
-              <div className="relative">
-                <textarea
-                  placeholder="The message you wish to send to the recipient..."
-                  value={formData.overview}
-                  onChange={(e) => setFormData({ ...formData, overview: e.target.value })}
-                  maxLength={320}
+          {/* Profile Overview */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Profile Overview</label>
+            <div className="relative">
+              <textarea
+                placeholder="The message you wish to send to the recipient..."
+                value={formData.overview}
+                onChange={(e) => setFormData({ ...formData, overview: e.target.value })}
+                maxLength={320}
                   rows={3}
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none resize-none"
-                />
-                <span className="absolute bottom-2 right-2 text-xs text-muted-foreground">
-                  {formData.overview.length}/320
-                </span>
-              </div>
-            </div>
-
-            {/* Skills */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Skills</label>
-              <TagInput
-                tags={formData.skills}
-                onTagsChange={(skills) => setFormData({ ...formData, skills })}
-                placeholder="Type skill and press Enter (e.g., React, Node.js)"
+                className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none resize-none"
               />
+              <span className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                {formData.overview.length}/320
+              </span>
             </div>
+          </div>
 
-            {/* Tags */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Tags</label>
-              <TagInput
-                tags={formData.tags}
-                onTagsChange={(tags) => setFormData({ ...formData, tags })}
-                placeholder="Type tag and press Enter (e.g., frontend, remote)"
-              />
+          {/* Skills */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Skills</label>
+            <TagInput
+              tags={formData.skills}
+              onTagsChange={(skills) => setFormData({ ...formData, skills })}
+              placeholder="Type skill and press Enter (e.g., React, Node.js)"
+            />
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Tags</label>
+            <TagInput
+              tags={formData.tags}
+              onTagsChange={(tags) => setFormData({ ...formData, tags })}
+              placeholder="Type tag and press Enter (e.g., frontend, remote)"
+            />
             </div>
           </div>
 

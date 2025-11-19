@@ -2,20 +2,36 @@
 
 import { Search, Bell } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useAuth } from "@/lib/auth-context"
 
 export default function TopHeader() {
+  const { user } = useAuth()
+  
+  // Get user initials for avatar fallback
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
+  const userName = user?.name || "User"
+  const userInitials = user?.name ? getInitials(user.name) : "U"
+
   return (
     <div className="flex items-start justify-between mb-4 mt-4">
       {/* Left: avatar + welcome */}
       <div className="flex items-start gap-3">
         <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
-          <AvatarImage src="/placeholder-user.jpg" alt="Sophia" />
-          <AvatarFallback>SW</AvatarFallback>
+          <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} alt={userName} />
+          <AvatarFallback>{userInitials}</AvatarFallback>
         </Avatar>
         <div className="pt-0.5">
-          <h1 className="text-[15px] font-semibold text-[var(--ink)]">Sophia Williams</h1>
+          <h1 className="text-[15px] font-semibold text-[var(--ink)]">{userName}</h1>
           <p className="text-[13px] text-[var(--muted)]">
-            Welcome back to Synergy <span>👋</span>
+            Welcome back to BXTrack Solutions <span>👋</span>
           </p>
         </div>
       </div>

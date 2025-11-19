@@ -35,25 +35,25 @@ export default function TabsStrip({
     <div className={`${hideProfileSelector ? 'mt-3' : 'mt-4'} flex items-center ${hideProfileSelector ? 'justify-between' : 'justify-between'}`}>
       {/* Select Profile (left) */}
       {!hideProfileSelector && (
-        <div className="flex flex-col">
-          <label className="mb-1 text-[12px] font-medium text-[var(--muted)]">Select Profile</label>
-          <div className="relative">
-            <input
-              defaultValue="Williams Sophia"
-              readOnly
-              className="h-[38px] w-[260px] rounded-[var(--radius-md)] border border-[var(--line)] bg-[var(--field)] px-3 pr-9 text-[13px] text-[var(--ink)] cursor-pointer"
-            />
-            <svg
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </div>
+      <div className="flex flex-col">
+        <label className="mb-1 text-[12px] font-medium text-[var(--muted)]">Select Profile</label>
+        <div className="relative">
+          <input
+            defaultValue="Williams Sophia"
+            readOnly
+            className="h-[38px] w-[260px] rounded-[var(--radius-md)] border border-[var(--line)] bg-[var(--field)] px-3 pr-9 text-[13px] text-[var(--ink)] cursor-pointer"
+          />
+          <svg
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
         </div>
+      </div>
       )}
 
       {/* Tabs (aligned left when profile selector is hidden) */}
@@ -95,17 +95,17 @@ export default function TabsStrip({
       {/* Right search (for larger screens) */}
       {!hideSearch && (
         <div className="hidden lg:block ml-auto">
-          <div className="relative">
-            <input
+        <div className="relative">
+          <input
               type="text"
               placeholder="Search jobs..."
               value={searchValue}
               onChange={(e) => onSearchChange?.(e.target.value)}
-              className="h-[38px] w-[220px] rounded-[var(--radius-md)] border border-[var(--line)] bg-[var(--field)] pl-10 pr-3 text-[13px] text-[var(--ink)] outline-none focus:ring-4 focus:ring-[#eaf3ff]"
-            />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)] pointer-events-none" />
-          </div>
+            className="h-[38px] w-[220px] rounded-[var(--radius-md)] border border-[var(--line)] bg-[var(--field)] pl-10 pr-3 text-[13px] text-[var(--ink)] outline-none focus:ring-4 focus:ring-[#eaf3ff]"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)] pointer-events-none" />
         </div>
+      </div>
       )}
     </div>
   )
