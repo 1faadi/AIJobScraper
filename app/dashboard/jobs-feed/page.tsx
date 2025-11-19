@@ -41,11 +41,22 @@ export default function JobsFeedPage() {
   const [activeTab, setActiveTab] = useState("mostRecent")
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [selectedProfile, setSelectedProfile] = useState("")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300) // 300ms delay
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   useEffect(() => {
-    fetchJobs(activeTab)
+    fetchJobs(activeTab, debouncedSearchQuery)
     fetchProfiles()
-  }, [activeTab])
+  }, [activeTab, debouncedSearchQuery])
 
   const fetchProfiles = async () => {
     try {
@@ -62,11 +73,18 @@ export default function JobsFeedPage() {
     }
   }
 
-  const fetchJobs = async (tab: string) => {
+  const fetchJobs = async (tab: string, search: string = "") => {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await fetch(`/api/jobs?tab=${tab}&page=1`)
+      const params = new URLSearchParams({
+        tab,
+        page: "1",
+      })
+      if (search.trim()) {
+        params.append("search", search.trim())
+      }
+      const response = await fetch(`/api/jobs?${params.toString()}`)
       if (!response.ok) {
         throw new Error("Failed to fetch jobs")
       }
@@ -113,7 +131,14 @@ export default function JobsFeedPage() {
         </div>
 
         {/* Tabs Strip */}
-        <TabsStrip activeTab={activeTab} onTabChange={setActiveTab} hideProfileSelector={true} hideSearch={false} />
+        <TabsStrip 
+          activeTab={activeTab} 
+          onTabChange={setActiveTab} 
+          hideProfileSelector={true} 
+          hideSearch={false}
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+        />
       </div>
       <div className="flex-1 overflow-auto">
         <div className="mx-auto w-full  px-6 pb-8">

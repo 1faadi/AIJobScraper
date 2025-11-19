@@ -7,17 +7,43 @@ export async function GET(request: NextRequest) {
     const profile = searchParams.get("profile")
     const tab = searchParams.get("tab") || "mostRecent"
     const page = Number.parseInt(searchParams.get("page") || "1")
+    const search = searchParams.get("search") || ""
     const itemsPerPage = 10
     const skip = (page - 1) * itemsPerPage
 
-    // Build where clause based on tab
+    // Build where clause based on tab and search
     let where: any = {}
+    
+    // Tab filter
     if (tab === "bestMatches") {
       where.bucket = "BEST_FIT"
     } else if (tab === "discarded") {
       where.bucket = "NOT_FIT"
     } else if (tab === "mostRecent") {
       // Show all jobs, ordered by most recent
+    }
+
+    // Add search filter if provided
+    if (search) {
+      const searchFilter = {
+        OR: [
+          { jobTitle: { contains: search, mode: "insensitive" as const } },
+          { jobDescription: { contains: search, mode: "insensitive" as const } },
+          { skillsRaw: { contains: search, mode: "insensitive" as const } },
+        ],
+      }
+      
+      // Combine tab filter with search filter using AND
+      if (where.bucket) {
+        where = {
+          AND: [
+            { bucket: where.bucket },
+            searchFilter,
+          ],
+        }
+      } else {
+        where = searchFilter
+      }
     }
 
     // Fetch jobs from database

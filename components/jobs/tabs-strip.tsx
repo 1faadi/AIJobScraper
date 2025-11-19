@@ -8,9 +8,18 @@ interface TabsStripProps {
   onTabChange?: (tab: string) => void
   hideProfileSelector?: boolean
   hideSearch?: boolean
+  searchValue?: string
+  onSearchChange?: (value: string) => void
 }
 
-export default function TabsStrip({ activeTab: externalActiveTab, onTabChange, hideProfileSelector = false, hideSearch = false }: TabsStripProps) {
+export default function TabsStrip({ 
+  activeTab: externalActiveTab, 
+  onTabChange, 
+  hideProfileSelector = false, 
+  hideSearch = false,
+  searchValue = "",
+  onSearchChange
+}: TabsStripProps) {
   const [internalActiveTab, setInternalActiveTab] = useState("mostRecent")
   const activeTab = externalActiveTab ?? internalActiveTab
 
@@ -88,7 +97,10 @@ export default function TabsStrip({ activeTab: externalActiveTab, onTabChange, h
         <div className="hidden lg:block ml-auto">
           <div className="relative">
             <input
-              placeholder="Search"
+              type="text"
+              placeholder="Search jobs..."
+              value={searchValue}
+              onChange={(e) => onSearchChange?.(e.target.value)}
               className="h-[38px] w-[220px] rounded-[var(--radius-md)] border border-[var(--line)] bg-[var(--field)] pl-10 pr-3 text-[13px] text-[var(--ink)] outline-none focus:ring-4 focus:ring-[#eaf3ff]"
             />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)] pointer-events-none" />
