@@ -1,21 +1,223 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Sparkles, FileText, Clipboard, ClipboardCheck } from "lucide-react"
+import { Sparkles, FileText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { RawProposalGenerateModal } from "@/components/raw-proposal/raw-proposal-generate-modal"
+import { JobDetailsAICard } from "@/components/jobs/job-details-ai-card"
+import { evaluateFit } from "@/lib/fit"
+
+// Parse raw job text to extract job details
+function parseRawJobText(rawText: string) {
+  if (!rawText.trim()) return null
+
+  const text = rawText.trim()
+  
+  // Extract title (usually first line or before "Posted")
+  const titleMatch = text.match(/^(.+?)(?:\s+Posted|\s+Summary|$)/i)
+  const title = titleMatch ? titleMatch[1].trim() : text.split('\n')[0]?.trim() || "Untitled Job"
+
+  // Extract posted time
+  const postedMatch = text.match(/Posted\s+([^•\n]+)/i)
+  const postedTime = postedMatch ? postedMatch[1].trim() : "Recently"
+
+  // Extract summary
+  const summaryMatch = text.match(/Summary\s+(.+?)(?:\s+Deliverables|$)/is)
+  const summary = summaryMatch ? summaryMatch[1].trim() : ""
+
+  // Extract deliverables
+  const deliverablesMatch = text.match(/Deliverables\s+(.+?)(?:\s+Less than|\s+Hourly|\s+Duration|$)/is)
+  const deliverables = deliverablesMatch ? deliverablesMatch[1].trim().split(/\n/).filter(l => l.trim()) : []
+
+  // Extract hours per week
+  const hoursMatch = text.match(/Less than\s+(\d+)\s+hrs\/week/i)
+  const hoursPerWeek = hoursMatch ? hoursMatch[1] : ""
+
+  // Extract pricing type
+  const pricingType = text.match(/Hourly|Fixed/i)?.[0] || "Fixed"
+
+  // Extract budget/rate
+  const budgetMatch = text.match(/\$([\d,]+(?:\.[\d]+)?)\s*-\s*\$([\d,]+(?:\.[\d]+)?)/)
+  const budget = budgetMatch ? `$${budgetMatch[1]} - $${budgetMatch[2]}` : text.match(/\$([\d,]+(?:\.[\d]+)?)/)?.[0] || "Not specified"
+
+  // Extract duration
+  const durationMatch = text.match(/Duration\s+(.+?)(?:\s+Expert|$)/i)
+  const duration = durationMatch ? durationMatch[1].trim() : ""
+
+  // Extract level
+  const levelMatch = text.match(/Expert|Intermediate|Entry\s+Level/i)
+  const level = levelMatch ? levelMatch[0] : "Expert"
+
+  // Extract questions
+  const questionsMatch = text.match(/You will be asked to answer the following questions[^:]*:\s*(.+?)(?:\s+Skills|$)/is)
+  const questions = questionsMatch 
+    ? questionsMatch[1].split(/\n/).filter(q => q.trim() && !q.match(/^\s*$/)).map(q => q.trim())
+    : []
+
+  // Extract skills
+  const skillsSection = text.match(/Skills and Expertise[^:]*:\s*(.+?)(?:\s+About the client|$)/is)
+  let allSkills: string[] = []
+  if (skillsSection) {
+    const mandatoryMatch = skillsSection[1]?.match(/Mandatory skills\s*(.+?)(?:\s+Nice-to-have|$)/is)
+    const niceToHaveMatch = skillsSection[1]?.match(/Nice-to-have skills\s*(.+?)(?:\s+Tools|$)/is)
+    
+    if (mandatoryMatch) {
+      const mandatoryText = mandatoryMatch[1].trim()
+      allSkills = [...allSkills, ...mandatoryText.split(/[,;]/).map(s => s.trim()).filter(s => s)]
+    }
+    if (niceToHaveMatch) {
+      const niceToHaveText = niceToHaveMatch[1].trim()
+      allSkills = [...allSkills, ...niceToHaveText.split(/[,;]/).map(s => s.trim()).filter(s => s)]
+    }
+  }
+  
+  // If no skills found in structured format, try to extract from Tools section
+  if (allSkills.length === 0) {
+    const toolsMatch = text.match(/Tools\s*(.+?)(?:\s+About the client|$)/is)
+    if (toolsMatch) {
+      allSkills = toolsMatch[1].split(/[,;]/).map(s => s.trim()).filter(s => s)
+    }
+  }
+
+  // Extract client info
+  const clientSection = text.match(/About the client\s+(.+?)$/is)?.[1] || ""
+  const paymentVerified = /Payment method verified/i.test(clientSection)
+  const ratingMatch = clientSection.match(/Rating is\s+([\d.]+)/i) || clientSection.match(/([\d.]+)\s+out of/i)
+  const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0
+  const hireRateMatch = clientSection.match(/(\d+)%\s+hire rate/i)
+  const hireRate = hireRateMatch ? parseInt(hireRateMatch[1]) : 0
+  const jobsPostedMatch = clientSection.match(/(\d+)\s+jobs posted/i)
+  const openJobs = jobsPostedMatch ? parseInt(jobsPostedMatch[1]) : 0
+  const totalSpendMatch = clientSection.match(/\$([\d,]+)\s+total spent/i)
+  const totalSpend = totalSpendMatch ? parseFloat(totalSpendMatch[1].replace(/,/g, '')) : 0
+  const hiresMatch = clientSection.match(/(\d+)\s+hires/i)
+  const totalHires = hiresMatch ? parseInt(hiresMatch[1]) : 0
+  const avgRateMatch = clientSection.match(/\$([\d.]+)\s*\/hr/i) || clientSection.match(/\$([\d.]+)\s*\/\s*hr/i)
+  const avgRate = avgRateMatch ? parseFloat(avgRateMatch[1]) : 0
+
+  // Extract country - try multiple patterns
+  let clientCountry = ""
+  
+  // Import preferred countries for matching
+  const PREFERRED_COUNTRIES_LIST = [
+    "United States", "United Kingdom", "United Arab Emirates", "New Zealand",
+    "Czech Republic", "South Korea", "South Africa", "Saudi Arabia",
+    "Austria", "Belgium", "Croatia", "Cyprus", "Denmark", "Estonia", 
+    "Finland", "France", "Germany", "Greece", "Hungary", "Ireland", 
+    "Italy", "Luxembourg", "Malta", "Netherlands", "Poland", "Portugal", 
+    "Romania", "Slovakia", "Slovenia", "Spain", "Sweden", "Switzerland", 
+    "Norway", "Singapore", "Australia", "Canada"
+  ]
+  
+  // Pattern 1: Look for country names from preferred list (most reliable)
+  // Search in reverse order (longest first) to match "United States" before "United"
+  const sortedCountries = [...PREFERRED_COUNTRIES_LIST].sort((a, b) => b.length - a.length)
+  for (const country of sortedCountries) {
+    // Use word boundary to avoid partial matches
+    const regex = new RegExp(`\\b${country.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+    if (regex.test(clientSection)) {
+      clientCountry = country
+      break
+    }
+  }
+  
+  // Pattern 2: Also check for common abbreviations
+  if (!clientCountry) {
+    const abbrevMap: Record<string, string> = {
+      "USA": "United States",
+      "UK": "United Kingdom", 
+      "UAE": "United Arab Emirates"
+    }
+    for (const [abbrev, fullName] of Object.entries(abbrevMap)) {
+      const regex = new RegExp(`\\b${abbrev}\\b`, 'i')
+      if (regex.test(clientSection)) {
+        clientCountry = fullName
+        break
+      }
+    }
+  }
+  
+  // Pattern 3: Try to extract from "Country City Time" pattern (e.g., "United States South Jordan 6:00 AM")
+  if (!clientCountry) {
+    // Look for pattern: [Country] [City] [Time]
+    // This pattern appears near the end of client section
+    const timePattern = /\d+:\d+\s*(?:AM|PM)/i
+    const timeMatch = clientSection.match(timePattern)
+    if (timeMatch) {
+      const timeIndex = clientSection.indexOf(timeMatch[0])
+      // Get text before time (should contain country and city)
+      const locationText = clientSection.substring(Math.max(0, timeIndex - 100), timeIndex).trim()
+      
+      // Try to find country in this location text
+      for (const country of sortedCountries) {
+        const regex = new RegExp(`\\b${country.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+        if (regex.test(locationText)) {
+          clientCountry = country
+          break
+        }
+      }
+    }
+  }
+  
+  // Pattern 4: Check if "Worldwide" is mentioned
+  if (!clientCountry && text.includes("Worldwide")) {
+    // If Worldwide, we can't determine country - leave empty
+    clientCountry = ""
+  }
+
+  // Build description
+  const description = [
+    summary,
+    deliverables.length > 0 ? `\n\nDeliverables:\n${deliverables.map(d => `- ${d}`).join('\n')}` : "",
+    questions.length > 0 ? `\n\nQuestions:\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}` : ""
+  ].filter(Boolean).join('\n')
+
+  // Calculate fit score using evaluateFit
+  const fitResult = evaluateFit({
+    clientCountry: clientCountry || undefined,
+    paymentVerified: paymentVerified,
+    clientRating: rating,
+    jobsPosted: openJobs,
+    hireRate: hireRate > 0 ? hireRate : null,
+    totalSpent: totalSpend > 0 ? totalSpend : null,
+    aiMatchPercent: null, // We don't have AI match for raw jobs
+  })
+
+  return {
+    id: `raw-${Date.now()}`,
+    title,
+    postedTime,
+    pricing: pricingType,
+    budget,
+    level,
+    description: description || summary || rawText.substring(0, 500),
+    skills: allSkills.length > 0 ? allSkills : [],
+    paymentVerified,
+    rating,
+    hireRate,
+    openJobs,
+    totalSpend,
+    totalHires,
+    avgRate,
+    clientCountry: clientCountry || undefined,
+    matchScore: undefined, // AI match not calculated for raw jobs (no profile to match against)
+    fitScore: fitResult.fitScore,
+    bucket: fitResult.bucket,
+    rawText, // Keep original for reference
+  }
+}
 
 export default function RawProposalPage() {
+  const router = useRouter()
   const { toast } = useToast()
   const [rawText, setRawText] = useState("")
-  const [openModal, setOpenModal] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [generated, setGenerated] = useState<string>("")
-  const [copied, setCopied] = useState(false)
 
-  const handleOpenModal = () => {
+  // Parse job details from raw text
+  const parsedJob = useMemo(() => parseRawJobText(rawText), [rawText])
+
+  const handleGenerateProposal = () => {
     if (!rawText.trim()) {
       toast({
         title: "Paste a job summary first",
@@ -24,61 +226,40 @@ export default function RawProposalPage() {
       })
       return
     }
-    setOpenModal(true)
-  }
 
-  const handleGenerate = async (payload: {
-    templateId: string
-    profileId: string
-    portfolioIds: string[]
-    caseStudyIds: string[]
-  }) => {
-    setIsGenerating(true)
-    setGenerated("")
-    setCopied(false)
-
-    try {
-      const res = await fetch("/api/raw-proposals/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rawJobText: rawText,
-          ...payload,
-        }),
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || "Failed to generate proposal")
-      }
-
-      const data = await res.json()
-      setGenerated(data.proposal ?? "")
+    if (!parsedJob) {
       toast({
-        title: "Proposal generated",
-        description: "You can review, edit, and copy it from the right panel.",
-      })
-    } catch (err) {
-      console.error(err)
-      toast({
-        title: "Something went wrong",
-        description: err instanceof Error ? err.message : "Unable to generate proposal. Please try again.",
+        title: "Invalid job text",
+        description: "Could not parse job details. Please check the format.",
         variant: "destructive",
       })
-    } finally {
-      setIsGenerating(false)
+      return
     }
-  }
 
-  const handleCopy = () => {
-    if (!generated) return
-    navigator.clipboard.writeText(generated)
-    setCopied(true)
-    toast({
-      title: "Copied!",
-      description: "Proposal copied to clipboard.",
-    })
-    setTimeout(() => setCopied(false), 1500)
+    // Store job data in sessionStorage and navigate
+    if (typeof window !== 'undefined') {
+      try {
+        const jobDataString = JSON.stringify(parsedJob)
+        sessionStorage.setItem('rawJobData', jobDataString)
+        
+        // Verify it was stored
+        const verify = sessionStorage.getItem('rawJobData')
+        if (verify) {
+          router.push(`/dashboard/jobs-feed/raw/proposal`)
+        } else {
+          throw new Error("Failed to store job data in sessionStorage")
+        }
+      } catch (err) {
+        console.error("Error storing job data:", err)
+        toast({
+          title: "Error",
+          description: "Failed to store job data. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } else {
+      router.push(`/dashboard/jobs-feed/raw/proposal`)
+    }
   }
 
   return (
@@ -123,66 +304,33 @@ export default function RawProposalPage() {
             <Button
               size="sm"
               className="bg-primary text-xs font-semibold text-white hover:bg-primary/90"
-              disabled={!rawText.trim() || isGenerating}
-              onClick={handleOpenModal}
+              disabled={!rawText.trim()}
+              onClick={handleGenerateProposal}
             >
               <Sparkles className="mr-1.5 h-4 w-4" />
-              {isGenerating ? "Generating..." : "Generate Proposal"}
+              Generate Proposal
             </Button>
           </div>
         </div>
 
-        {/* Right: Generated proposal preview */}
-        <div className="flex flex-col rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-[#0F172A]">Generated Proposal</h2>
-              <p className="text-xs text-[#64748B]">
-                Once generated, you can review, tweak and copy it into Upwork.
-              </p>
+        {/* Right: Job Details Card */}
+        {parsedJob ? (
+          <div className="lg:sticky lg:top-8">
+            <JobDetailsAICard 
+              jobId={parsedJob.id} 
+              jobData={parsedJob} 
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-sm">
+            <div className="flex h-full flex-col items-center justify-center text-center text-xs text-[#94A3B8]">
+              <FileText className="mb-2 h-6 w-6" />
+              <p>Job details will appear here after pasting job text.</p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 border-[#E7ECF2] px-3 text-xs"
-              disabled={!generated}
-              onClick={handleCopy}
-            >
-              {copied ? (
-                <>
-                  <ClipboardCheck className="mr-1.5 h-3.5 w-3.5" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Clipboard className="mr-1.5 h-3.5 w-3.5" />
-                  Copy
-                </>
-              )}
-            </Button>
           </div>
-
-          <div className="relative flex-1 overflow-auto rounded-lg bg-[#F7F8FA] p-4 text-sm text-[#0F172A]">
-            {generated ? (
-              <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed">
-                {generated}
-              </pre>
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center text-center text-xs text-[#94A3B8]">
-                <FileText className="mb-2 h-6 w-6" />
-                <p>Proposal content will appear here after generation.</p>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Modal for template/profile/portfolio selection */}
-      <RawProposalGenerateModal
-        open={openModal}
-        onOpenChange={setOpenModal}
-        onGenerate={handleGenerate}
-      />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
+import { getPromptConfig, processPromptTemplate } from "@/lib/prompt-helper"
 
 interface ProposalVariant {
   variant: "short" | "technical" | "friendly"
@@ -25,72 +26,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Content is required" }, { status: 400 })
     }
 
-    const aimlApiKey = process.env.AIML_API_KEY
-    if (!aimlApiKey) {
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY
+    if (!openRouterApiKey) {
       return NextResponse.json(
-        { error: "AIML API key is not configured" },
+        { error: "OpenRouter API key is not configured" },
         { status: 500 }
       )
     }
 
+    // Fetch prompt configuration
+    const promptConfig = await getPromptConfig()
+
     const api = new OpenAI({
-      baseURL: 'https://api.aimlapi.com/v1',
-      apiKey: aimlApiKey,
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: openRouterApiKey,
+      defaultHeaders: {
+        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+        "X-Title": process.env.SITE_NAME || "AI Job Scraping",
+      },
     })
 
     // Find most relevant case studies and portfolios
     const relevantCaseStudies = findRelevantItems(caseStudies || [], jobSkills, jobCategory, 2)
     const relevantPortfolios = findRelevantItems(portfolios || [], jobSkills, jobCategory, 2)
 
-    // Build base context
-    let baseContext = `You are a professional freelancer writing job proposals. Generate professional proposals based on the following:\n\n`
-    
-    if (template) {
-      baseContext += `Template/Base Content:\n${template}\n\n`
-    }
-    
-    if (profile && typeof profile === 'object') {
-      const profileInfo = `Name: ${profile.name || 'N/A'}\nTitle: ${profile.title || 'N/A'}\nOverview: ${profile.overview || 'N/A'}\nSkills: ${profile.skills?.join(', ') || 'N/A'}`
-      baseContext += `Profile Information:\n${profileInfo}\n\n`
-    }
-    
-    if (relevantCaseStudies.length > 0) {
-      baseContext += `IMPORTANT: You MUST reference these case studies in your proposal:\n`
-      relevantCaseStudies.forEach((cs, idx) => {
-        baseContext += `${idx + 1}. ${cs.title}: ${cs.description}\n`
-      })
-      baseContext += `\n`
-    }
-    
-    if (relevantPortfolios.length > 0) {
-      baseContext += `IMPORTANT: You MUST reference these portfolio items:\n`
-      relevantPortfolios.forEach((p, idx) => {
-        baseContext += `${idx + 1}. ${p.title}: ${p.description}\n`
-      })
-      baseContext += `\n`
-    }
-    
-    if (jobDescription) {
-      baseContext += `Job Description:\n${jobDescription}\n\n`
-    }
-    
-    baseContext += `Current Proposal Content:\n${content}\n\n`
-
     // Detect missing information
     const missingInfo = detectMissingInfo(jobDescription, jobSkills)
-    if (missingInfo.length > 0) {
-      baseContext += `Note: The job description is missing some information. Consider adding a brief questions section at the end:\n`
-      missingInfo.forEach((info) => {
-        baseContext += `- ${info}\n`
-      })
-      baseContext += `\n`
-    }
 
-    // Formatting rules
-    const formattingRules = `CRITICAL FORMATTING RULES:\n`
-      + `1. NEVER use em-dashes (—) or en-dashes (–). Use regular hyphens (-) or commas instead.\n`
-      + `2. Use ONLY standard ASCII punctuation: . , ! ? : ; - ( ) [ ] " '\n`
-      + `3. Keep the text clean and professional.\n\n`
+    console.log("Building prompts for variant generation using PromptConfig...")
+    console.log("Input data:", {
+      hasTemplate: !!template,
+      hasProfile: !!profile,
+      portfoliosCount: portfolios?.length || 0,
+      caseStudiesCount: caseStudies?.length || 0,
+      hasJobDescription: !!jobDescription,
+      hasContent: !!content,
+    })
 
     // Generate 3 variants with delay between requests to avoid rate limiting
     const variants: ProposalVariant[] = []
@@ -121,7 +92,20 @@ export async function POST(request: NextRequest) {
       }
       
       try {
-        const generatedContent = await generateVariant(api, baseContext, formattingRules, variantConfigs[i].variant)
+        const generatedContent = await generateVariant(
+          api,
+          promptConfig,
+          {
+            template,
+            profile,
+            portfolios: relevantPortfolios,
+            caseStudies: relevantCaseStudies,
+            jobDescription,
+            content,
+            variant: variantConfigs[i].variant,
+            missingInfo,
+          }
+        )
         variants.push({
           variant: variantConfigs[i].variant,
           title: variantConfigs[i].title,
@@ -164,18 +148,23 @@ export async function POST(request: NextRequest) {
 
 async function generateVariant(
   api: OpenAI,
-  baseContext: string,
-  formattingRules: string,
-  variant: "short" | "technical" | "friendly"
-): Promise<string> {
-  const variantInstructions = {
-    short: `Generate a SHORT and PUNCHY proposal (150-250 words). Be direct, confident, and impactful. Focus on key value propositions.`,
-    technical: `Generate a TECHNICAL and DETAILED proposal (300-500 words). Showcase your technical expertise, methodologies, and specific solutions. Include technical details relevant to the project.`,
-    friendly: `Generate a FRIENDLY and WARM proposal (250-400 words). Use a conversational, approachable tone. Build rapport with the client while maintaining professionalism.`,
+  promptConfig: { systemPrompt: string; temperature: number; maxTokens: number; model: string },
+  variables: {
+    template?: string
+    profile?: string | object
+    portfolios?: Array<{ title: string; description: string }>
+    caseStudies?: Array<{ title: string; description: string }>
+    jobDescription?: string
+    content?: string
+    variant: "short" | "technical" | "friendly"
+    missingInfo?: string[]
   }
-
-  const prompt = baseContext + variantInstructions[variant] + "\n\n" + formattingRules
-    + `Return only the proposal text without any additional commentary.`
+): Promise<string> {
+  // Build the prompt using the configured template with variant-specific instructions
+  const prompt = processPromptTemplate(promptConfig.systemPrompt, variables)
+  
+  console.log(`Prompt for ${variables.variant} variant built, length:`, prompt.length)
+  console.log(`Prompt preview (first 500 chars):`, prompt.substring(0, 500))
   
   // Retry logic for rate limiting (429 errors)
   const maxRetries = 3
@@ -184,23 +173,37 @@ async function generateVariant(
     if (attempt > 0) {
       // Exponential backoff: wait 2^attempt seconds
       const waitTime = Math.pow(2, attempt) * 1000
-      console.log(`Retrying variant ${variant} after ${waitTime}ms (attempt ${attempt + 1}/${maxRetries + 1})...`)
+      console.log(`Retrying variant ${variables.variant} after ${waitTime}ms (attempt ${attempt + 1}/${maxRetries + 1})...`)
       await new Promise(resolve => setTimeout(resolve, waitTime))
     }
 
     try {
       const result = await api.chat.completions.create({
-        model: 'google/gemma-3n-e4b-it',
+        model: promptConfig.model,
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
+        temperature: promptConfig.temperature,
         top_p: 0.7,
         frequency_penalty: 1,
-        max_tokens: 2000,
+        max_tokens: promptConfig.maxTokens,
       })
 
-      return result.choices?.[0]?.message?.content || ""
+      let content = result.choices?.[0]?.message?.content || ""
+      
+      // Post-process to remove any template variables or placeholders
+      content = content
+        .replace(/\{\{[^}]+\}\}/g, '') // Remove {{variable}} patterns
+        .replace(/\[Your Name\]/gi, '')
+        .replace(/\[X years?\]/gi, '')
+        .replace(/\[link to[^\]]+\]/gi, '')
+        .replace(/\[Answer question \d+\]/gi, '')
+        .replace(/\[specific skills[^\]]+\]/gi, '')
+        .replace(/\[number\]/gi, '')
+        .replace(/\[details\]/gi, '')
+        .replace(/\n{3,}/g, '\n\n') // Clean up excessive newlines
+      
+      return content
     } catch (error: any) {
-      console.error(`AIML API error for variant ${variant} (attempt ${attempt + 1}):`, error)
+      console.error(`OpenRouter API error for variant ${variables.variant} (attempt ${attempt + 1}):`, error)
       
       // Check if it's a rate limit error
       const isRateLimit = error?.status === 429 || error?.response?.status === 429 || error?.message?.includes('rate limit')
@@ -221,7 +224,7 @@ async function generateVariant(
   }
 
   // If we exhausted all retries
-  throw new Error(`Failed to generate ${variant} variant after ${maxRetries + 1} attempts due to rate limiting.`)
+  throw new Error(`Failed to generate ${variables.variant} variant after ${maxRetries + 1} attempts due to rate limiting.`)
 }
 
 function findRelevantItems(
@@ -286,5 +289,15 @@ function cleanProposal(text: string): string {
     .replace(/\u2014/g, ', ')
     .replace(/\u2013/g, '-')
     .replace(/\u2015/g, ', ')
+    // Remove any template variables or placeholders
+    .replace(/\{\{[^}]+\}\}/g, '') // Remove {{variable}} patterns
+    .replace(/\[Your Name\]/gi, '')
+    .replace(/\[X years?\]/gi, '')
+    .replace(/\[link to[^\]]+\]/gi, '')
+    .replace(/\[Answer question \d+\]/gi, '')
+    .replace(/\[specific skills[^\]]+\]/gi, '')
+    .replace(/\[number\]/gi, '')
+    .replace(/\[details\]/gi, '')
+    .replace(/\n{3,}/g, '\n\n') // Clean up excessive newlines
 }
 

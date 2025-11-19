@@ -29,11 +29,24 @@ interface PortfolioOption {
   profileId: string
 }
 
-interface ProposalFormProps {
-  jobId: string
+interface Job {
+  id: string
+  title: string
+  description: string
+  skills?: string[]
+  budget?: string
+  level?: string
+  category?: string
+  industry?: string
 }
 
-export function ProposalForm({ jobId }: ProposalFormProps) {
+interface ProposalFormProps {
+  jobId: string
+  job?: Job // Optional job data for raw jobs
+  onProfileChange?: (profileId: string) => void
+}
+
+export function ProposalForm({ jobId, job: jobData, onProfileChange }: ProposalFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   
@@ -63,7 +76,7 @@ export function ProposalForm({ jobId }: ProposalFormProps) {
     fetchTemplates()
     fetchProfiles()
     fetchJobDescription()
-  }, [jobId])
+  }, [jobId, jobData])
 
   useEffect(() => {
     if (profileId) {
@@ -128,6 +141,16 @@ export function ProposalForm({ jobId }: ProposalFormProps) {
   }
 
   const fetchJobDescription = async () => {
+    // If job data is provided directly (for raw jobs), use it
+    if (jobData) {
+      const description = `${jobData.title}\n\nJob Description:\n${jobData.description}\n\nSkills Required: ${jobData.skills?.join(", ") || "Not specified"}\n\nBudget: ${jobData.budget || "Not specified"}\nLevel: ${jobData.level || "Not specified"}`
+      setJobDescription(description)
+      setJobSkills(jobData.skills || [])
+      setJobCategory(jobData.category || jobData.industry || "")
+      return
+    }
+
+    // Otherwise, fetch from API
     try {
       const response = await fetch("/api/jobs")
       if (response.ok) {
@@ -419,7 +442,11 @@ export function ProposalForm({ jobId }: ProposalFormProps) {
           </label>
           <select
             value={profileId}
-            onChange={(e) => setProfileId(e.target.value)}
+            onChange={(e) => {
+              const newProfileId = e.target.value
+              setProfileId(newProfileId)
+              onProfileChange?.(newProfileId)
+            }}
             className={`w-full px-4 py-2 bg-background border rounded-lg text-foreground focus:ring-2 focus:ring-primary outline-none ${
               errors.profile ? "border-red-500" : "border-border"
             }`}
@@ -509,7 +536,7 @@ export function ProposalForm({ jobId }: ProposalFormProps) {
 
         {/* Message Editor */}
         <div>
-          <div className="flex items-center gap-2 p-2 bg-muted rounded-t-lg border border-b-0 border-border">
+          <div className="flex items-center gap-2 p-2 bg-gray-100 rounded-t-lg border border-b-0 border-border">
             <button
               type="button"
               onClick={() => handleFormat("bold")}

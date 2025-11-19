@@ -9,17 +9,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Proposal is required" }, { status: 400 })
     }
 
-    const aimlApiKey = process.env.AIML_API_KEY
-    if (!aimlApiKey) {
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY
+    if (!openRouterApiKey) {
       return NextResponse.json(
-        { error: "AIML API key is not configured" },
+        { error: "OpenRouter API key is not configured" },
         { status: 500 }
       )
     }
 
     const api = new OpenAI({
-      baseURL: 'https://api.aimlapi.com/v1',
-      apiKey: aimlApiKey,
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: openRouterApiKey,
+      defaultHeaders: {
+        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+        "X-Title": process.env.SITE_NAME || "AI Job Scraping",
+      },
     })
 
     // Check length (Upwork limit is typically 5000 characters)
@@ -61,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const result = await api.chat.completions.create({
-        model: 'google/gemma-3n-e4b-it',
+        model: 'openai/gpt-4o-mini',
         messages: [{ role: "user", content: qualityPrompt }],
         temperature: 0.7,
         top_p: 0.7,
@@ -81,7 +85,7 @@ export async function POST(request: NextRequest) {
         console.warn("Failed to parse quality check JSON, using defaults")
       }
     } catch (error) {
-      console.error("Error calling AIML API for quality check:", error)
+      console.error("Error calling OpenRouter API for quality check:", error)
       // Use default quality data if API call fails
     }
 

@@ -59,7 +59,9 @@ export async function GET(request: NextRequest) {
         totalSpend: job.totalSpent ? Math.round(job.totalSpent / 1000) : 0, // Convert to thousands
         totalHires: job.hires || 0,
         avgRate: job.avgHourlyPaid || 0,
-        matchScore: job.aiMatchPercent ? Math.round(job.aiMatchPercent * 100) : 0,
+        matchScore: job.aiMatchPercent !== null && job.aiMatchPercent !== undefined 
+          ? Math.round(job.aiMatchPercent * 100) 
+          : undefined,
         bucket,
         fitScore: job.fitScore ?? 0, // Use stored fitScore or default to 0
         clientCountry: job.clientCountry,

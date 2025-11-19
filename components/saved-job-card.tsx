@@ -89,7 +89,7 @@ export function SavedJobCard({ job, onRemove }: SavedJobCardProps) {
         {job.skills.map((skill) => (
           <span
             key={skill}
-            className="px-3 py-1 bg-muted text-muted-foreground text-xs rounded-full"
+            className="px-3 py-1 bg-gray-100 text-muted-foreground text-xs rounded-full"
           >
             {skill}
           </span>
@@ -149,7 +149,7 @@ export function SavedJobCard({ job, onRemove }: SavedJobCardProps) {
         <Button
           onClick={handleRemove}
           variant="outline"
-          className="border-border text-foreground hover:bg-muted"
+          className="border-border text-foreground hover:bg-gray-100"
         >
           Remove
         </Button>

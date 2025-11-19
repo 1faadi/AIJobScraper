@@ -49,7 +49,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
       <button
         onClick={() => onPageChange(Math.max(1, currentPage - 1))}
         disabled={currentPage === 1}
-        className="px-3 py-1 border border-border rounded text-sm hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-1 border border-border rounded text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         &lt;
       </button>
@@ -63,7 +63,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
               ? "bg-primary text-primary-foreground"
               : typeof page === "string"
               ? "border-none cursor-default"
-              : "border border-border hover:bg-muted"
+              : "border border-border hover:bg-gray-100"
           }`}
         >
           {page}
@@ -72,7 +72,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
       <button
         onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
         disabled={currentPage === totalPages}
-        className="px-3 py-1 border border-border rounded text-sm hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-1 border border-border rounded text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         &gt;
       </button>

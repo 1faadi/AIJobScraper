@@ -9,17 +9,21 @@ export async function POST(
     const { id } = await params
     const jobData = await request.json()
 
-    const aimlApiKey = process.env.AIML_API_KEY
-    if (!aimlApiKey) {
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY
+    if (!openRouterApiKey) {
       return NextResponse.json(
-        { error: "AIML API key is not configured" },
+        { error: "OpenRouter API key is not configured" },
         { status: 500 }
       )
     }
 
     const api = new OpenAI({
-      baseURL: 'https://api.aimlapi.com/v1',
-      apiKey: aimlApiKey,
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: openRouterApiKey,
+      defaultHeaders: {
+        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+        "X-Title": process.env.SITE_NAME || "AI Job Scraping",
+      },
     })
 
     // Build prompt for job details generation
@@ -59,7 +63,7 @@ export async function POST(
 
       try {
         const result = await api.chat.completions.create({
-          model: 'google/gemma-3n-e4b-it',
+          model: 'openai/gpt-4o-mini',
           messages: [
             {
               role: "user",
@@ -89,7 +93,7 @@ export async function POST(
           success: true,
         })
       } catch (error: any) {
-        console.error(`AIML API error (attempt ${attempt + 1}):`, error)
+        console.error(`OpenRouter API error (attempt ${attempt + 1}):`, error)
         
         let errorMessage = "Failed to generate job details"
         let isRateLimit = false

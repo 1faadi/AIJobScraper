@@ -26,7 +26,7 @@ export function ItemCard({ id, title, description, onEdit, onDelete }: ItemCardP
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-2 opacity-0 group-hover:opacity-100 hover:bg-muted rounded-lg transition-all flex-shrink-0">
+            <button className="p-2 opacity-0 group-hover:opacity-100 hover:bg-gray-100 rounded-lg transition-all flex-shrink-0">
               <MoreVertical className="w-4 h-4 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>

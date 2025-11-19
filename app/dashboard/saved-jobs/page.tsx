@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { SavedJobCard } from "@/components/saved-job-card"
@@ -121,7 +122,10 @@ export default function SavedJobsPage() {
       <div className="flex-1 overflow-auto p-8">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-muted-foreground">Loading saved jobs...</div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Loading saved jobs...</span>
+            </div>
           </div>
         ) : error ? (
           <div className="flex items-center justify-center h-64">

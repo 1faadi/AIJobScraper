@@ -27,8 +27,18 @@ export function ScoreBreakdown({ jobData, fitScore }: ScoreBreakdownProps) {
   const hireRate = jobData.hireRate !== undefined ? jobData.hireRate / 100 : null // Convert to 0-1
   const totalSpent = (jobData.totalSpend || 0) * 1000 // Convert from K to actual
   const jobsPosted = jobData.openJobs || 0
-  // matchScore is already in percentage (0-100) from the API
-  const aiMatch = jobData.matchScore !== undefined ? jobData.matchScore / 100 : null // Convert to 0-1
+  // matchScore can be in percentage (0-100) or decimal (0-1) format
+  // Normalize to 0-1 for calculations
+  const aiMatch = (() => {
+    if (jobData.matchScore === undefined || jobData.matchScore === null) {
+      return null
+    }
+    const score = typeof jobData.matchScore === 'number' ? jobData.matchScore : parseFloat(String(jobData.matchScore))
+    if (isNaN(score)) return null
+    // If score is > 1, assume it's percentage (0-100), convert to 0-1
+    // If score is <= 1, assume it's already 0-1
+    return score > 1 ? score / 100 : score
+  })()
 
   // Determine status for each factor
   const factors = [
@@ -74,11 +84,11 @@ export function ScoreBreakdown({ jobData, fitScore }: ScoreBreakdownProps) {
     {
       label: "AI Skills Match",
       status: aiMatch === null ? "neutral" : aiMatch >= 0.75 ? "pass" : aiMatch >= 0.5 ? "warning" : "fail",
-      value: aiMatch !== null ? `${jobData.matchScore || 0}%` : "Not calculated",
+      value: aiMatch !== null ? `${Math.round((aiMatch * 100))}%` : "Not calculated",
       requirement: "≥ 75% (Best Fit)",
       icon: aiMatch === null ? AlertCircle : aiMatch >= 0.75 ? Check : aiMatch >= 0.5 ? AlertCircle : X,
-      showProgress: true,
-      progress: aiMatch || 0,
+      showProgress: aiMatch !== null,
+      progress: aiMatch !== null ? aiMatch : undefined,
     },
   ]
 

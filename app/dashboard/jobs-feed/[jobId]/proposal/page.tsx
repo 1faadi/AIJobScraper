@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { Loader2 } from "lucide-react"
 import { TopBar } from "@/components/profile/top-bar"
 import { ProposalForm } from "@/components/proposals/proposal-form"
 import { JobDetailsCard } from "@/components/jobs/job-details-card"
+import { JobDetailsAICard } from "@/components/jobs/job-details-ai-card"
 
 interface Job {
   id: string
@@ -22,7 +24,7 @@ interface Job {
   totalSpend: number
   totalHires: number
   avgRate: number
-  matchScore: number
+  matchScore?: number
   fitScore?: number
   bucket?: string
 }
@@ -30,15 +32,53 @@ interface Job {
 export default function ProposalPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const jobId = params.jobId as string
 
   const [job, setJob] = useState<Job | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<"details" | "analysis">("details")
+  const [profileId, setProfileId] = useState<string>("")
 
   useEffect(() => {
+    // Check if we're in the browser
+    if (typeof window === 'undefined') {
+      setIsLoading(false)
+      return
+    }
+
+    // First, check sessionStorage for raw job data (from raw proposal page)
+    const storedJobData = sessionStorage.getItem('rawJobData')
+    if (storedJobData) {
+      try {
+        const jobData = JSON.parse(storedJobData)
+        setJob(jobData as Job)
+        setIsLoading(false)
+        // Clear the stored data after use
+        sessionStorage.removeItem('rawJobData')
+        return
+      } catch (err) {
+        console.error("Error parsing job data from sessionStorage:", err)
+      }
+    }
+
+    // Check if job data is passed via query params (for raw jobs)
+    const jobParam = searchParams.get("job")
+    if (jobParam) {
+      try {
+        const jobData = JSON.parse(decodeURIComponent(jobParam))
+        setJob(jobData as Job)
+        setIsLoading(false)
+        return
+      } catch (err) {
+        console.error("Error parsing job data from query params:", err)
+      }
+    }
+    
+    // Otherwise, fetch from API
     fetchJob()
-  }, [jobId])
+  }, [jobId, searchParams])
 
   const fetchJob = async () => {
     setIsLoading(true)
@@ -105,7 +145,10 @@ export default function ProposalPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-muted-foreground">Loading job details...</div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Loading job details...</span>
+        </div>
       </div>
     )
   }
@@ -127,12 +170,45 @@ export default function ProposalPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Left Column - Proposal Form */}
             <div className="order-2 lg:order-1">
-              <ProposalForm jobId={jobId} />
+              <ProposalForm jobId={jobId} job={job || undefined} onProfileChange={setProfileId} />
             </div>
 
-            {/* Right Column - Job Details */}
+            {/* Right Column - Job Details with Tabs */}
             <div className="order-1 lg:order-2">
-              <JobDetailsCard job={job} />
+              {/* Tabs */}
+              <div className="mb-4">
+                <div className="flex items-center rounded-[12px] border border-[#E7ECF2] bg-[#F7F8FA] p-0.5">
+                  <button
+                    onClick={() => setActiveTab("details")}
+                    className={`flex-1 h-9 rounded-[10px] px-4 text-[13px] transition-all ${
+                      activeTab === "details"
+                        ? "bg-white text-[#0F172A] shadow-[0_1px_2px_rgba(0,0,0,0.05)] font-semibold"
+                        : "bg-transparent text-[#64748B] hover:text-[#0F172A] font-normal"
+                    }`}
+                  >
+                    Job Details
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("analysis")}
+                    className={`flex-1 h-9 rounded-[10px] px-4 text-[13px] transition-all ${
+                      activeTab === "analysis"
+                        ? "bg-white text-[#0F172A] shadow-[0_1px_2px_rgba(0,0,0,0.05)] font-semibold"
+                        : "bg-transparent text-[#64748B] hover:text-[#0F172A] font-normal"
+                    }`}
+                  >
+                    AI Analysis
+                  </button>
+                </div>
+              </div>
+
+              {/* Tab Content */}
+              {activeTab === "details" ? (
+                <JobDetailsCard job={job} />
+              ) : (
+                <div className="lg:sticky lg:top-8">
+                  <JobDetailsAICard jobId={jobId} jobData={job} profileId={profileId} />
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
+import { getPromptConfig, processPromptTemplate } from "@/lib/prompt-helper"
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,68 +10,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Content is required" }, { status: 400 })
     }
 
-    const aimlApiKey = process.env.AIML_API_KEY
-    if (!aimlApiKey) {
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY
+    if (!openRouterApiKey) {
       return NextResponse.json(
-        { error: "AIML API key is not configured" },
+        { error: "OpenRouter API key is not configured" },
         { status: 500 }
       )
     }
 
+    // Fetch prompt configuration
+    const promptConfig = await getPromptConfig()
+
     const api = new OpenAI({
-      baseURL: 'https://api.aimlapi.com/v1',
-      apiKey: aimlApiKey,
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: openRouterApiKey,
+      defaultHeaders: {
+        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+        "X-Title": process.env.SITE_NAME || "AI Job Scraping",
+      },
     })
 
-    console.log("Building prompt for proposal generation...")
+    console.log("Building prompt for proposal generation using PromptConfig...")
+    console.log("Input data:", {
+      hasTemplate: !!template,
+      hasProfile: !!profile,
+      hasPortfolio: !!portfolio,
+      hasJobDescription: !!jobDescription,
+      hasContent: !!content,
+    })
     
-    // Build the prompt for AI proposal generation
-    let prompt = `You are a professional freelancer writing a job proposal. Generate an enhanced, professional proposal based on the following information:\n\n`
-    
-    if (template) {
-      prompt += `Template/Base Content:\n${template}\n\n`
-    }
-    
-    if (profile && typeof profile === 'object') {
-      const profileInfo = `Name: ${profile.name || 'N/A'}\nTitle: ${profile.title || 'N/A'}\nOverview: ${profile.overview || 'N/A'}\nSkills: ${profile.skills?.join(', ') || 'N/A'}`
-      prompt += `Profile Information:\n${profileInfo}\n\n`
-    } else if (profile) {
-      prompt += `Profile Information:\n${profile}\n\n`
-    }
-    
-    if (portfolio && typeof portfolio === 'object') {
-      const portfolioInfo = `Title: ${portfolio.title || 'N/A'}\nDescription: ${portfolio.description || 'N/A'}`
-      prompt += `Portfolio/Work Sample:\n${portfolioInfo}\n\n`
-    } else if (portfolio) {
-      prompt += `Portfolio/Work Sample:\n${portfolio}\n\n`
-    }
-    
-    if (jobDescription) {
-      prompt += `Job Description:\n${jobDescription}\n\n`
-    }
-    
-    prompt += `Current Proposal Content:\n${content}\n\n`
-    prompt += `Please generate a professional, compelling proposal that:\n`
-    prompt += `1. Addresses the job requirements effectively\n`
-    prompt += `2. Highlights relevant skills and experience from the profile\n`
-    prompt += `3. References relevant portfolio work when applicable\n`
-    prompt += `4. Maintains a professional and engaging tone\n`
-    prompt += `5. Is concise but comprehensive\n`
-    prompt += `6. Directly addresses how you can help solve the client's needs\n\n`
-    prompt += `CRITICAL FORMATTING RULES - YOU MUST FOLLOW THESE STRICTLY:\n`
-    prompt += `1. NEVER use em-dashes (—) or en-dashes (–) anywhere in your response.\n`
-    prompt += `2. NEVER use the Unicode characters U+2014 (em-dash) or U+2013 (en-dash).\n`
-    prompt += `3. Instead of em-dashes or en-dashes, use:\n`
-    prompt += `   - Regular hyphens (-) for compound words or ranges\n`
-    prompt += `   - Commas (,) for pauses or separations\n`
-    prompt += `   - Periods (.) for sentence breaks\n`
-    prompt += `4. Use ONLY standard ASCII punctuation: . , ! ? : ; - ( ) [ ] " '\n`
-    prompt += `5. Keep the text clean, professional, and free of any special Unicode dash characters.\n\n`
-    prompt += `Example of what NOT to do: "I have experience—especially in web development—that makes me perfect for this role."\n`
-    prompt += `Example of what TO do: "I have experience, especially in web development, that makes me perfect for this role."\n\n`
-    prompt += `Return only the enhanced proposal text without any additional commentary or explanations.`
+    // Build the prompt using the configured template
+    const prompt = processPromptTemplate(promptConfig.systemPrompt, {
+      template,
+      profile,
+      portfolio,
+      jobDescription,
+      content,
+    })
 
     console.log("Prompt built, length:", prompt.length)
+    console.log("Prompt preview (first 500 chars):", prompt.substring(0, 500))
 
     // Retry logic for rate limiting (429 errors)
     const maxRetries = 3
@@ -84,22 +63,22 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // Call AIML API
+        // Call OpenRouter API using configured settings
         const result = await api.chat.completions.create({
-          model: 'google/gemma-3n-e4b-it',
+          model: promptConfig.model,
           messages: [
             {
               role: "user",
               content: prompt,
             },
           ],
-          temperature: 0.7,
+          temperature: promptConfig.temperature,
           top_p: 0.7,
           frequency_penalty: 1,
-          max_tokens: 2000,
+          max_tokens: promptConfig.maxTokens,
         })
 
-        console.log("AIML API response received")
+        console.log("OpenRouter API response received")
         
         let generatedProposal = result.choices?.[0]?.message?.content || content
         
@@ -110,6 +89,18 @@ export async function POST(request: NextRequest) {
           .replace(/\u2014/g, ', ') // Unicode em-dash
           .replace(/\u2013/g, '-')  // Unicode en-dash
           .replace(/\u2015/g, ', ') // Horizontal bar (sometimes used as dash)
+        
+        // Remove any template variables or placeholders that might have been generated
+        generatedProposal = generatedProposal
+          .replace(/\{\{[^}]+\}\}/g, '') // Remove {{variable}} patterns
+          .replace(/\[Your Name\]/gi, '')
+          .replace(/\[X years?\]/gi, '')
+          .replace(/\[link to[^\]]+\]/gi, '')
+          .replace(/\[Answer question \d+\]/gi, '')
+          .replace(/\[specific skills[^\]]+\]/gi, '')
+          .replace(/\[number\]/gi, '')
+          .replace(/\[details\]/gi, '')
+          .replace(/\n{3,}/g, '\n\n') // Clean up excessive newlines
         
         if (!generatedProposal || generatedProposal === content) {
           console.warn("No new proposal generated, using original content")
@@ -122,7 +113,7 @@ export async function POST(request: NextRequest) {
           success: true,
         })
       } catch (error: any) {
-        console.error(`AIML API error (attempt ${attempt + 1}):`, error)
+        console.error(`OpenRouter API error (attempt ${attempt + 1}):`, error)
         
         let errorMessage = "Failed to generate proposal with AI"
         let statusCode = 500

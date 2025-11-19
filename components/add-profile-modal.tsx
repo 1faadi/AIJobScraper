@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { X } from "lucide-react"
@@ -63,9 +64,23 @@ interface AddProfileModalProps {
   isOpen: boolean
   onClose: () => void
   onAdd: (profile: any) => void
+  profile?: Profile | null // Optional profile for edit mode
 }
 
-export function AddProfileModal({ isOpen, onClose, onAdd }: AddProfileModalProps) {
+interface Profile {
+  id?: string
+  name: string
+  title: string
+  hourlyRate: string
+  jobSuccess: string
+  experience?: string
+  badge?: string
+  overview?: string
+  skills?: string[]
+  tags?: string[]
+}
+
+export function AddProfileModal({ isOpen, onClose, onAdd, profile }: AddProfileModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     jobSuccessRate: "100%",
@@ -77,19 +92,53 @@ export function AddProfileModal({ isOpen, onClose, onAdd }: AddProfileModalProps
     tags: [] as string[],
   })
 
+  // Update form data when profile prop changes (for edit mode)
+  React.useEffect(() => {
+    if (profile) {
+      setFormData({
+        name: profile.name || "",
+        jobSuccessRate: profile.jobSuccess || "100%",
+        hourlyRate: profile.hourlyRate || "$65/hr",
+        badge: profile.badge || "",
+        title: profile.title || "",
+        overview: profile.overview || "",
+        skills: profile.skills || [],
+        tags: profile.tags || [],
+      })
+    } else {
+      // Reset form when not in edit mode
+      setFormData({
+        name: "",
+        jobSuccessRate: "100%",
+        hourlyRate: "$65/hr",
+        badge: "",
+        title: "",
+        overview: "",
+        skills: [],
+        tags: [],
+      })
+    }
+  }, [profile, isOpen])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onAdd(formData)
-    setFormData({
-      name: "",
-      jobSuccessRate: "100%",
-      hourlyRate: "$65/hr",
-      badge: "",
-      title: "",
-      overview: "",
-      skills: [],
-      tags: [],
-    })
+    const profileData = profile 
+      ? { ...formData, id: profile.id }
+      : formData
+    onAdd(profileData)
+    if (!profile) {
+      // Only reset if not in edit mode
+      setFormData({
+        name: "",
+        jobSuccessRate: "100%",
+        hourlyRate: "$65/hr",
+        badge: "",
+        title: "",
+        overview: "",
+        skills: [],
+        tags: [],
+      })
+    }
   }
 
   if (!isOpen) return null
@@ -100,10 +149,10 @@ export function AddProfileModal({ isOpen, onClose, onAdd }: AddProfileModalProps
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Add Profile</h2>
+            <h2 className="text-lg font-semibold text-foreground">{profile ? "Edit Profile" : "Add Profile"}</h2>
             <p className="text-sm text-muted-foreground mt-1">Fill all the details to get the better AI response</p>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg">
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
         </div>
@@ -216,12 +265,12 @@ export function AddProfileModal({ isOpen, onClose, onAdd }: AddProfileModalProps
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-border rounded-lg text-foreground hover:bg-muted transition-colors"
+              className="flex-1 px-4 py-2 border border-border rounded-lg text-foreground hover:bg-gray-100 transition-colors"
             >
               Close
             </button>
             <Button type="submit" className="flex-1 bg-primary hover:bg-orange-600 text-primary-foreground">
-              Add
+              {profile ? "Update" : "Add"}
             </Button>
           </div>
         </form>

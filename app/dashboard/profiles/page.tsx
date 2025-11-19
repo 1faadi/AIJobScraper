@@ -4,8 +4,25 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Filter, MoreVertical } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { Search, Filter, MoreVertical, Loader2, Edit, Trash2 } from "lucide-react"
 import { AddProfileModal } from "@/components/add-profile-modal"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Profile {
   id: string
@@ -22,7 +39,11 @@ interface Profile {
 
 export default function ProfilesPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingProfile, setEditingProfile] = useState<Profile | null>(null)
+  const [deleteProfileId, setDeleteProfileId] = useState<string | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -60,26 +81,92 @@ export default function ProfilesPage() {
 
   const handleAddProfile = async (newProfile: any) => {
     try {
-      const response = await fetch("/api/profiles", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newProfile),
-      })
+      if (newProfile.id) {
+        // Update existing profile
+        const response = await fetch(`/api/profiles/${newProfile.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newProfile),
+        })
 
-      if (!response.ok) {
-        throw new Error("Failed to create profile")
+        if (!response.ok) {
+          throw new Error("Failed to update profile")
+        }
+      } else {
+        // Create new profile
+        const response = await fetch("/api/profiles", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newProfile),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to create profile")
+        }
       }
 
-      const data = await response.json()
       // Refresh profiles list
       await fetchProfiles()
       setIsModalOpen(false)
+      setEditingProfile(null)
+      toast({
+        title: newProfile.id ? "Profile Updated" : "Profile Created",
+        description: newProfile.id 
+          ? "Profile has been updated successfully." 
+          : "Profile has been created successfully.",
+      })
     } catch (err) {
-      console.error("Error creating profile:", err)
-      alert(err instanceof Error ? err.message : "Failed to create profile")
+      console.error("Error saving profile:", err)
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to save profile",
+        variant: "destructive",
+      })
     }
+  }
+
+  const handleEditProfile = (profile: Profile) => {
+    setEditingProfile(profile)
+    setIsModalOpen(true)
+  }
+
+  const handleDeleteProfile = async () => {
+    if (!deleteProfileId) return
+
+    try {
+      const response = await fetch(`/api/profiles/${deleteProfileId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete profile")
+      }
+
+      // Refresh profiles list
+      await fetchProfiles()
+      setIsDeleteDialogOpen(false)
+      setDeleteProfileId(null)
+      toast({
+        title: "Profile Deleted",
+        description: "Profile has been deleted successfully.",
+      })
+    } catch (err) {
+      console.error("Error deleting profile:", err)
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to delete profile",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const openDeleteDialog = (profileId: string) => {
+    setDeleteProfileId(profileId)
+    setIsDeleteDialogOpen(true)
   }
 
   return (
@@ -121,7 +208,10 @@ export default function ProfilesPage() {
       <div className="flex-1 overflow-auto p-8">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-muted-foreground">Loading profiles...</div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Loading profiles...</span>
+            </div>
           </div>
         ) : error ? (
           <div className="flex items-center justify-center h-64">
@@ -167,15 +257,39 @@ export default function ProfilesPage() {
                   <td className="px-6 py-4 text-sm text-foreground">{profile.experience}</td>
                   <td className="px-6 py-4 text-sm text-foreground">{profile.jobSuccess}</td>
                   <td className="px-6 py-4">
-                    <button 
-                      className="p-2 hover:bg-muted rounded-lg transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        // TODO: Open actions menu
-                      }}
-                    >
-                      <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button 
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                          }}
+                        >
+                          <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditProfile(profile)
+                          }}
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openDeleteDialog(profile.id)
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                   </tr>
                   ))
@@ -194,14 +308,14 @@ export default function ProfilesPage() {
             <button
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(1)}
-              className="px-3 py-2 border border-border rounded-lg text-sm hover:bg-muted disabled:opacity-50"
+              className="px-3 py-2 border border-border rounded-lg text-sm hover:bg-gray-100 disabled:opacity-50"
             >
               «
             </button>
             <button
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(currentPage - 1)}
-              className="px-3 py-2 border border-border rounded-lg text-sm hover:bg-muted disabled:opacity-50"
+              className="px-3 py-2 border border-border rounded-lg text-sm hover:bg-gray-100 disabled:opacity-50"
             >
               &lt;
             </button>
@@ -214,7 +328,7 @@ export default function ProfilesPage() {
                   className={`px-3 py-2 rounded-lg text-sm ${
                     currentPage === pageNum
                       ? "bg-primary text-primary-foreground"
-                      : "border border-border hover:bg-muted"
+                      : "border border-border hover:bg-gray-100"
                   }`}
                 >
                   {pageNum}
@@ -224,14 +338,14 @@ export default function ProfilesPage() {
             <button
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(currentPage + 1)}
-              className="px-3 py-2 border border-border rounded-lg text-sm hover:bg-muted disabled:opacity-50"
+              className="px-3 py-2 border border-border rounded-lg text-sm hover:bg-gray-100 disabled:opacity-50"
             >
               &gt;
             </button>
             <button
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(totalPages)}
-              className="px-3 py-2 border border-border rounded-lg text-sm hover:bg-muted disabled:opacity-50"
+              className="px-3 py-2 border border-border rounded-lg text-sm hover:bg-gray-100 disabled:opacity-50"
             >
               »
             </button>
@@ -247,8 +361,37 @@ export default function ProfilesPage() {
         </div>
       </div>
 
-      {/* Add Profile Modal */}
-      <AddProfileModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAdd={handleAddProfile} />
+      {/* Add/Edit Profile Modal */}
+      <AddProfileModal 
+        isOpen={isModalOpen} 
+        onClose={() => {
+          setIsModalOpen(false)
+          setEditingProfile(null)
+        }} 
+        onAdd={handleAddProfile}
+        profile={editingProfile}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Profile</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this profile? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteProfileId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProfile}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

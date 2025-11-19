@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Briefcase, Users, FileText, Heart } from "lucide-react"
+import { Briefcase, Users, FileText, Heart, Loader2 } from "lucide-react"
 import { DashboardHeader } from "./dashboard-header"
 import { StatsCard } from "./stats-card"
 import { Button } from "@/components/ui/button"
@@ -146,7 +146,10 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold text-foreground mb-4">Recent Activity</h2>
             <div className="bg-card border border-border rounded-lg p-6">
               {isLoading ? (
-                <div className="text-center py-8 text-muted-foreground">Loading activity...</div>
+                <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Loading activity...</span>
+                </div>
               ) : activities.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">No recent activity</div>
               ) : (

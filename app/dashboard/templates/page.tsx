@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus, Loader2 } from "lucide-react"
 import { TemplatesHeader } from "@/components/templates-header"
 import { TemplateCard } from "@/components/templates/template-card"
 import { AddTemplateModal } from "@/components/templates/add-template-modal"
@@ -171,7 +171,10 @@ export default function TemplatesPage() {
         {/* Templates Grid */}
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-muted-foreground">Loading templates...</div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Loading templates...</span>
+            </div>
           </div>
         ) : error ? (
           <div className="flex items-center justify-center h-64">

@@ -260,7 +260,7 @@ Key Responsibilities & Tasks:
             {/* Rich Text Toolbar */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Formatting</label>
-              <div className="flex gap-2 p-2 bg-muted rounded-lg">
+              <div className="flex gap-2 p-2 bg-gray-100 rounded-lg">
                 <button className="p-2 hover:bg-background rounded transition-colors" title="Bold">
                   <Bold className="w-4 h-4 text-foreground" />
                 </button>
@@ -296,7 +296,7 @@ Key Responsibilities & Tasks:
 
             {/* Actions */}
             <div className="flex gap-3">
-              <button className="flex-1 px-4 py-2 border border-border rounded-lg text-foreground hover:bg-muted transition-colors">
+              <button className="flex-1 px-4 py-2 border border-border rounded-lg text-foreground hover:bg-gray-100 transition-colors">
                 Close
               </button>
               <Button

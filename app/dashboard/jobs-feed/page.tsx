@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Loader2 } from "lucide-react"
 import { JobCardWithDetails } from "@/components/job-card"
 import TopHeader from "@/components/jobs/top-header"
 import TabsStrip from "@/components/jobs/tabs-strip"
@@ -118,7 +119,10 @@ export default function JobsFeedPage() {
         <div className="mx-auto w-full  px-6 pb-8">
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
-              <div className="text-[var(--muted)]">Loading jobs...</div>
+              <div className="flex items-center gap-2 text-[var(--muted)]">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Loading jobs...</span>
+              </div>
             </div>
           ) : error ? (
             <div className="flex items-center justify-center h-64">
