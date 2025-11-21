@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { getPromptConfig, processPromptTemplate } from "@/lib/prompt-helper"
+import { jobRequestsExternalContact, sanitizeExternalContacts } from "@/lib/guardrails/upworkContactPolicy"
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,6 +40,12 @@ export async function POST(request: NextRequest) {
       hasContent: !!content,
     })
     
+    // Check if job requests external contact information
+    const contactCheck = jobRequestsExternalContact(jobDescription || "")
+    if (contactCheck.requested) {
+      console.log("Job requests external contact info. Matched phrases:", contactCheck.matchedPhrases)
+    }
+    
     // Build the prompt using the configured template
     const prompt = processPromptTemplate(promptConfig.systemPrompt, {
       template,
@@ -46,6 +53,7 @@ export async function POST(request: NextRequest) {
       portfolio,
       jobDescription,
       content,
+      contactCheck,
     })
 
     console.log("Prompt built, length:", prompt.length)
@@ -101,6 +109,13 @@ export async function POST(request: NextRequest) {
           .replace(/\[number\]/gi, '')
           .replace(/\[details\]/gi, '')
           .replace(/\n{3,}/g, '\n\n') // Clean up excessive newlines
+        
+        // Sanitize external contact information (guardrail)
+        const { sanitizedText, foundContacts } = sanitizeExternalContacts(generatedProposal, { allowGitHub: true })
+        if (foundContacts.length > 0) {
+          console.warn(`LLM tried to output contact info, sanitized ${foundContacts.length} items:`, foundContacts.map(c => `${c.type}: ${c.value.substring(0, 50)}`))
+        }
+        generatedProposal = sanitizedText
         
         if (!generatedProposal || generatedProposal === content) {
           console.warn("No new proposal generated, using original content")

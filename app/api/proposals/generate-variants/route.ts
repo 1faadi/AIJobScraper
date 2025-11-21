@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { getPromptConfig, processPromptTemplate } from "@/lib/prompt-helper"
+import { jobRequestsExternalContact, sanitizeExternalContacts } from "@/lib/guardrails/upworkContactPolicy"
 
 interface ProposalVariant {
   variant: "short" | "technical" | "friendly"
@@ -53,6 +54,12 @@ export async function POST(request: NextRequest) {
     // Detect missing information
     const missingInfo = detectMissingInfo(jobDescription, jobSkills)
 
+    // Check if job requests external contact information
+    const contactCheck = jobRequestsExternalContact(jobDescription || "")
+    if (contactCheck.requested) {
+      console.log("Job requests external contact info. Matched phrases:", contactCheck.matchedPhrases)
+    }
+
     console.log("Building prompts for variant generation using PromptConfig...")
     console.log("Input data:", {
       hasTemplate: !!template,
@@ -104,6 +111,7 @@ export async function POST(request: NextRequest) {
             content,
             variant: variantConfigs[i].variant,
             missingInfo,
+            contactCheck,
           }
         )
         variants.push({
@@ -158,6 +166,7 @@ async function generateVariant(
     content?: string
     variant: "short" | "technical" | "friendly"
     missingInfo?: string[]
+    contactCheck?: { requested: boolean; matchedPhrases: string[] }
   }
 ): Promise<string> {
   // Build the prompt using the configured template with variant-specific instructions
@@ -200,6 +209,13 @@ async function generateVariant(
         .replace(/\[number\]/gi, '')
         .replace(/\[details\]/gi, '')
         .replace(/\n{3,}/g, '\n\n') // Clean up excessive newlines
+      
+      // Sanitize external contact information (guardrail)
+      const { sanitizedText, foundContacts } = sanitizeExternalContacts(content, { allowGitHub: true })
+      if (foundContacts.length > 0) {
+        console.warn(`LLM tried to output contact info in ${variables.variant} variant, sanitized ${foundContacts.length} items`)
+      }
+      content = sanitizedText
       
       return content
     } catch (error: any) {
@@ -283,7 +299,7 @@ function detectMissingInfo(jobDescription: string, jobSkills: string[]): string[
 }
 
 function cleanProposal(text: string): string {
-  return text
+  let cleaned = text
     .replace(/—/g, ', ')
     .replace(/–/g, '-')
     .replace(/\u2014/g, ', ')
@@ -299,5 +315,9 @@ function cleanProposal(text: string): string {
     .replace(/\[number\]/gi, '')
     .replace(/\[details\]/gi, '')
     .replace(/\n{3,}/g, '\n\n') // Clean up excessive newlines
+  
+  // Sanitize external contact information (guardrail)
+  const { sanitizedText } = sanitizeExternalContacts(cleaned, { allowGitHub: true })
+  return sanitizedText
 }
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, Briefcase, Users, Heart, FileText, LogOut, Sparkles, Settings, Menu, ChevronLeft } from "lucide-react"
+import { LayoutDashboard, Briefcase, Users, Heart, FileText, LogOut, Sparkles, Settings, Menu, ChevronLeft, FileCheck } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/dashboard/jobs-feed", icon: Briefcase, label: "Jobs Feed" },
   { href: "/dashboard/raw-proposal", icon: Sparkles, label: "Raw Proposal" },
+  { href: "/dashboard/cv-screener", icon: FileCheck, label: "CV Screener" },
   { href: "/dashboard/profiles", icon: Users, label: "Profiles" },
   { href: "/dashboard/saved-jobs", icon: Heart, label: "Saved Jobs" },
   { href: "/dashboard/templates", icon: FileText, label: "Templates" },

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { ContactCheckResult } from "@/lib/guardrails/upworkContactPolicy"
 
 interface PromptConfig {
   systemPrompt: string
@@ -17,6 +18,7 @@ interface PromptVariables {
   content?: string
   variant?: "short" | "technical" | "friendly"
   missingInfo?: string[]
+  contactCheck?: ContactCheckResult
 }
 
 /**
@@ -107,10 +109,50 @@ IMPORTANT: Write the complete proposal text now. Use real information from the d
 }
 
 /**
+ * Builds Upwork contact policy guardrail instructions
+ */
+function buildGuardrailInstructions(contactCheck?: ContactCheckResult): string {
+  let guardrailBlock = `\n\n**Important Upwork Policy Guard Rail (MUST FOLLOW):**
+
+* Never include my personal contact details (email address, phone number, WhatsApp, Telegram, Skype, direct website URL, company name, or physical location/address) in the proposal.
+* If the client explicitly asks for any contact information or to move communication off Upwork, you MUST politely refuse and say that sharing external contact information is against Upwork's terms of service and that you prefer to keep communication on Upwork.
+* You may include my GitHub profile link when relevant, but no other external links that directly identify me (no portfolio website, LinkedIn, personal domain, etc.).
+* If you are unsure whether something counts as contact information, err on the side of NOT including it.`
+
+  if (contactCheck?.requested) {
+    guardrailBlock += `\n\n**CRITICAL: The job description explicitly asks for contact info or external communication.**
+Matched phrases: ${contactCheck.matchedPhrases.join(", ")}
+You MUST respond that you cannot share external contact details due to Upwork policies and keep everything on Upwork.`
+  }
+
+  return guardrailBlock
+}
+
+/**
  * Processes a prompt template by replacing placeholders with actual values
  */
 export function processPromptTemplate(template: string, variables: PromptVariables): string {
   let prompt = template
+
+  // Inject guardrail instructions at the beginning (after the initial role description)
+  const guardrailInstructions = buildGuardrailInstructions(variables.contactCheck)
+  
+  // Insert guardrail instructions right after the opening line, before any conditional blocks
+  // Find the first occurrence of "{{#if" or the end of the opening description
+  const firstConditionalIndex = prompt.indexOf("{{#if")
+  if (firstConditionalIndex > 0) {
+    // Insert before the first conditional block
+    prompt = prompt.slice(0, firstConditionalIndex) + guardrailInstructions + "\n\n" + prompt.slice(firstConditionalIndex)
+  } else {
+    // If no conditionals, insert after the opening description (before CRITICAL INSTRUCTIONS)
+    const criticalIndex = prompt.indexOf("CRITICAL INSTRUCTIONS")
+    if (criticalIndex > 0) {
+      prompt = prompt.slice(0, criticalIndex) + guardrailInstructions + "\n\n" + prompt.slice(criticalIndex)
+    } else {
+      // Fallback: prepend to the template
+      prompt = guardrailInstructions + "\n\n" + prompt
+    }
+  }
 
   // Format profile
   let profileText = ""

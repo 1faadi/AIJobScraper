@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { prisma } from "@/lib/prisma"
+import { jobRequestsExternalContact, sanitizeExternalContacts } from "@/lib/guardrails/upworkContactPolicy"
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,8 +59,28 @@ export async function POST(request: NextRequest) {
 
     console.log("Building prompt for raw proposal generation...")
 
+    // Check if job requests external contact information
+    const contactCheck = jobRequestsExternalContact(rawJobText || "")
+    if (contactCheck.requested) {
+      console.log("Job requests external contact info. Matched phrases:", contactCheck.matchedPhrases)
+    }
+
     // Build the prompt for AI proposal generation
     let prompt = `You are a professional freelancer writing a job proposal. Generate an enhanced, professional proposal based on the following information:\n\n`
+
+    // Add Upwork contact policy guardrails
+    prompt += `**Important Upwork Policy Guard Rail (MUST FOLLOW):**
+
+* Never include my personal contact details (email address, phone number, WhatsApp, Telegram, Skype, direct website URL, company name, or physical location/address) in the proposal.
+* If the client explicitly asks for any contact information or to move communication off Upwork, you MUST politely refuse and say that sharing external contact information is against Upwork's terms of service and that you prefer to keep communication on Upwork.
+* You may include my GitHub profile link when relevant, but no other external links that directly identify me (no portfolio website, LinkedIn, personal domain, etc.).
+* If you are unsure whether something counts as contact information, err on the side of NOT including it.\n\n`
+
+    if (contactCheck.requested) {
+      prompt += `**CRITICAL: The job description explicitly asks for contact info or external communication.**
+Matched phrases: ${contactCheck.matchedPhrases.join(", ")}
+You MUST respond that you cannot share external contact details due to Upwork policies and keep everything on Upwork.\n\n`
+    }
 
     // Add template/base content
     prompt += `Template/Base Content:\n${template.content}\n\n`
@@ -147,6 +168,13 @@ export async function POST(request: NextRequest) {
           .replace(/\u2014/g, ', ') // Unicode em-dash
           .replace(/\u2013/g, '-')  // Unicode en-dash
           .replace(/\u2015/g, ', ') // Horizontal bar (sometimes used as dash)
+        
+        // Sanitize external contact information (guardrail)
+        const { sanitizedText, foundContacts } = sanitizeExternalContacts(generatedProposal, { allowGitHub: true })
+        if (foundContacts.length > 0) {
+          console.warn(`LLM tried to output contact info, sanitized ${foundContacts.length} items:`, foundContacts.map(c => `${c.type}: ${c.value.substring(0, 50)}`))
+        }
+        generatedProposal = sanitizedText
 
         if (!generatedProposal) {
           console.warn("No proposal generated")
