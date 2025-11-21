@@ -2,6 +2,76 @@ import { type NextRequest, NextResponse } from "next/server"
 import { analyzeAtsFriendliness, matchCvToJobs } from "@/lib/ai/analyzeCv"
 import { CvScreenerResponse, CvScreenerError } from "@/lib/types/cv-screener"
 
+// Lazy load pdf-parse to avoid initialization issues
+// Note: pdf-parse v1.1.1 has a known issue where it tries to access test files during init
+// We handle this gracefully by catching the error and providing a helpful message
+let pdfParseModule: any = null
+let pdfParseLoadAttempted = false
+
+function getPdfParse() {
+  if (!pdfParseModule && !pdfParseLoadAttempted) {
+    pdfParseLoadAttempted = true
+    
+    // Ensure test directory exists (workaround for pdf-parse v1.1.1 bug)
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const testDir = path.join(process.cwd(), 'test', 'data')
+      if (!fs.existsSync(testDir)) {
+        fs.mkdirSync(testDir, { recursive: true })
+      }
+      // Create a minimal valid PDF if it doesn't exist
+      const testFile = path.join(testDir, '05-versions-space.pdf')
+      if (!fs.existsSync(testFile)) {
+        const minimalPdf = Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\nxref\n0 1\ntrailer\n<< /Size 1 /Root 1 0 R >>\nstartxref\n9\n%%EOF')
+        fs.writeFileSync(testFile, minimalPdf)
+      }
+    } catch (setupError) {
+      // Ignore setup errors - try to load anyway
+      console.warn("Could not create test directory structure:", setupError)
+    }
+    
+    // Try to load pdf-parse
+    // Note: pdf-parse v1.1.1 may throw an error during require due to test file access
+    // but the module might still be usable, so we check the cache
+    try {
+      pdfParseModule = require("pdf-parse")
+    } catch (error: any) {
+      // Error occurred, but check if module was still cached
+      if (error?.code === 'ENOENT' && error?.path?.includes('test')) {
+        // Known issue - test file access error
+        // Try to get module from cache (sometimes module loads despite error)
+        try {
+          const Module = require('module')
+          const resolvedPath = require.resolve('pdf-parse')
+          const cached = Module._cache[resolvedPath]
+          if (cached?.exports) {
+            pdfParseModule = cached.exports
+          }
+        } catch {
+          // Cache access failed
+        }
+      }
+      
+      // If we still don't have the module, it's truly unavailable
+      if (!pdfParseModule) {
+        console.warn("pdf-parse failed to load:", error?.message)
+      }
+    }
+    
+    // Verify it's actually a function
+    if (pdfParseModule && typeof pdfParseModule !== 'function') {
+      pdfParseModule = null
+    }
+  }
+  
+  if (!pdfParseModule) {
+    throw new Error("PDF parsing is currently unavailable. Please paste your CV text directly or upload a .txt file.")
+  }
+  
+  return pdfParseModule
+}
+
 /**
  * API endpoint for CV analysis
  * Supports both file upload (multipart/form-data) and text input (JSON)
@@ -99,75 +169,43 @@ async function extractTextFromFile(file: File): Promise<string> {
   // PDF files
   if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
     try {
-      // Convert File to ArrayBuffer
+      // Convert File to ArrayBuffer, then to Buffer
       const arrayBuffer = await file.arrayBuffer()
-      const uint8Array = new Uint8Array(arrayBuffer)
+      const buffer = Buffer.from(arrayBuffer)
 
-      // Use pdfjs-dist legacy build for Node.js environments (as recommended)
-      // Dynamically import to handle CommonJS/ESM interop
-      const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs")
-      
-      // For server-side use, we need to provide a worker source
-      // Use path module to construct the absolute path to the worker file
-      if (pdfjsLib.GlobalWorkerOptions) {
-        const path = await import("path")
-        const fs = await import("fs")
-        
-        // Try multiple possible paths for the worker file
-        const possiblePaths = [
-          path.join(process.cwd(), "node_modules", "pdfjs-dist", "legacy", "build", "pdf.worker.mjs"),
-          path.resolve("node_modules", "pdfjs-dist", "legacy", "build", "pdf.worker.mjs"),
-        ]
-        
-        let workerPath: string | null = null
-        for (const possiblePath of possiblePaths) {
-          try {
-            if (fs.existsSync(possiblePath)) {
-              // Convert Windows paths to forward slashes and add file:// protocol
-              workerPath = `file://${possiblePath.replace(/\\/g, "/")}`
-              break
-            }
-          } catch {
-            // Continue to next path
-          }
+      // Use pdf-parse v1 (simpler, works better in serverless environments)
+      // Try to get the parser function
+      let pdfParse: any
+      try {
+        pdfParse = getPdfParse()
+      } catch (loadError: any) {
+        // If loading fails, provide helpful error message
+        if (loadError?.message?.includes('unavailable')) {
+          throw loadError
         }
-        
-        if (workerPath) {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath
-        } else {
-          // Fallback: try require.resolve if available
-          try {
-            const workerResolved = require.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs")
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `file://${workerResolved.replace(/\\/g, "/")}`
-          } catch {
-            // Last resort: use a relative path
-            pdfjsLib.GlobalWorkerOptions.workerSrc = "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"
-          }
-        }
+        throw new Error("PDF parsing is currently unavailable. Please paste your CV text directly or upload a .txt file.")
       }
       
-      // Load the PDF document
-      const loadingTask = pdfjsLib.getDocument({
-        data: uint8Array,
-        useSystemFonts: true,
-        verbosity: 0, // Suppress warnings
-      })
-      
-      const pdfDocument = await loadingTask.promise
-      const numPages = pdfDocument.numPages
-      
-      // Extract text from all pages
-      let fullText = ""
-      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-        const page = await pdfDocument.getPage(pageNum)
-        const textContent = await page.getTextContent()
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(" ")
-        fullText += pageText + "\n"
+      if (typeof pdfParse !== 'function') {
+        throw new Error("Failed to load PDF parser. Please try uploading a .txt file or paste the text directly.")
       }
       
-      const text = fullText.trim()
+      // Parse PDF - pdf-parse v1 is a function that takes a buffer
+      // Wrap in try-catch to handle any runtime errors
+      let pdfData
+      try {
+        pdfData = await pdfParse(buffer)
+      } catch (parseError: any) {
+        // Handle parsing errors
+        if (parseError?.code === 'ENOENT' && parseError?.path?.includes('test')) {
+          // This is the test file access issue - the library has a bug
+          throw new Error("PDF parsing encountered a library issue. Please paste your CV text directly or upload a .txt file.")
+        }
+        throw parseError
+      }
+      
+      // Extract text from PDF
+      const text = pdfData.text.trim()
       
       if (!text || text.length < 50) {
         throw new Error(
